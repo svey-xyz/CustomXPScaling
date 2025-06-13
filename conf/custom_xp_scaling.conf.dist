@@ -36,6 +36,9 @@ CustomXPScaling.RareXP.Scaling = 3.0
 CustomXPScaling.QuestXP.Enable = 1
 CustomXPScaling.QuestXP.Scaling = 0.4
 
+CustomXPScaling.ExploreXP.Enable = 1
+CustomXPScaling.ExploreXP.Scaling = 5.0
+
 CustomXPScaling.ProfessionsXP.Enable = 1
 CustomXPScaling.ProfessionsXP.ScaleLevel = 1
 CustomXPScaling.ProfessionsXP.Scaling = 5.0

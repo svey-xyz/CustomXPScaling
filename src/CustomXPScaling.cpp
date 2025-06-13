@@ -31,12 +31,17 @@ public:
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true))
 			return;
 
-		float killXPScaling = GetKillXPScaling(player, victim);
-		float questXPScaling = GetQuestXPScaling();
-		float levelXPScaling = GetLevelXPScaling(player);
 
 		// Calculate new XP with floating-point multiplication
-		float calculatedXP = static_cast<float>(amount) * killXPScaling * levelXPScaling * questXPScaling;
+		float calculatedXP = static_cast<float>(amount) * GetLevelXPScaling(player);
+
+		if (xpSource == XPSOURCE_QUEST || xpSource == XPSOURCE_QUEST_DF)
+			calculatedXP *= GetQuestXPScaling();
+		else if (xpSource == XPSOURCE_KILL)
+			calculatedXP *= GetKillXPScaling(player, victim);
+		else if (xpSource == XPSOURCE_EXPLORE)
+			calculatedXP *= GetExploreXPScaling();
+
 		// Round to nearest whole number and convert back to uint32
 		amount = static_cast<uint32>(std::round(calculatedXP));
 	}
@@ -92,6 +97,16 @@ public:
 		return killXPScaling;
 	}
 
+	float GetExploreXPScaling()
+	{
+		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
+				!sConfigMgr->GetOption<bool>("CustomXPScaling.ExploreXP.Enable", true))
+			return 1.0f;
+
+		float exploreXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.ExploreXP.Scaling", 1.0);
+		return exploreXPScaling;
+	}
+
 	float GetQuestXPScaling()
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
@@ -117,7 +132,7 @@ public:
 		player->GiveXP(xpToGive, nullptr);
 	}
 
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 skillId, uint32 currentLevel, uint32 gray, uint32 green, uint32 yellow, uint32 &gain) override
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -134,7 +149,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const *skill, uint32 currentLevel, uint32 &gain) override
+	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry /*const *skill*/, uint32 /*currentLevel*/, uint32 &gain) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -151,7 +166,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	bool OnPlayerUpdateFishingSkill(Player *player, int32 skill, int32 zone_skill, int32 chance, int32 roll) override
+	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return true; // Continue with the default fishing skill update logic
