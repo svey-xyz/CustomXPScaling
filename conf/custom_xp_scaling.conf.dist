@@ -5,38 +5,42 @@
 [worldserver]
 
 ########################################
-# My module configuration
+# Custom XP Scaling Configuration
 ########################################
 #
-#    MyModule.Enable
-#        Description: Enable my module and print "Hello World" message at server start
-#        Default:     0 - Disabled
-#                     1 - Enabled
+#    CustomXPScaling.Enable
+#        Description: Enable Custom XP Scaling
+#        Default:     1 - Enabled
+#                     0 - Disabled
 #
 
 CustomXPScaling.Enable = 1
 CustomXPScaling.Announce = 1
 
 CustomXPScaling.LevelXP.Enable = 1
-CustomXPScaling.LevelXP.Scaling.1-9 = 1
-CustomXPScaling.LevelXP.Scaling.10-19 = 2
-CustomXPScaling.LevelXP.Scaling.20-29 = 3
-CustomXPScaling.LevelXP.Scaling.30-39 = 4
-CustomXPScaling.LevelXP.Scaling.40-49 = 5
-CustomXPScaling.LevelXP.Scaling.50-59 = 6
-CustomXPScaling.LevelXP.Scaling.60-69 = 7
-CustomXPScaling.LevelXP.Scaling.70-79 = 8
+CustomXPScaling.LevelXP.Scaling.1-9 = 0.2
+CustomXPScaling.LevelXP.Scaling.10-19 = 0.3
+CustomXPScaling.LevelXP.Scaling.20-29 = 0.8
+CustomXPScaling.LevelXP.Scaling.30-39 = 1.0
+CustomXPScaling.LevelXP.Scaling.40-49 = 1.2
+CustomXPScaling.LevelXP.Scaling.50-59 = 1.3
+CustomXPScaling.LevelXP.Scaling.60-69 = 1.3
+CustomXPScaling.LevelXP.Scaling.70-79 = 1.3
+
+CustomXPScaling.KillXP.Enable = 1
+CustomXPScaling.KillXP.Scaling = 2.2
 
 CustomXPScaling.RareXP.Enable = 1
 CustomXPScaling.RareXP.Scaling = 3.0
 
-CustomXPScaling.Kill.Enable = 1
-CustomXPScaling.Kill.Scaling = 2.2
+CustomXPScaling.QuestXP.Enable = 1
+CustomXPScaling.QuestXP.Scaling = 0.4
 
-CustomXPScaling.Quest.Enable = 1
-CustomXPScaling.Quest.Scaling = 0.4
+CustomXPScaling.ProfessionsXP.Enable = 1
+CustomXPScaling.ProfessionsXP.ScaleLevel = 1
+CustomXPScaling.ProfessionsXP.Scaling = 5.0
 
 CustomXPScaling.AchievementXP.Enable = 1
-CustomXPScaling.AchievementXP.Percent = 1.0
-CustomXPScaling.AchievementXP.ScaleLevel = 0
+CustomXPScaling.AchievementXP.ScaleLevel = 1
+CustomXPScaling.AchievementXP.Scaling = 5.0
 
