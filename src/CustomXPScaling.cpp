@@ -132,7 +132,7 @@ public:
 		player->GiveXP(xpToGive, nullptr);
 	}
 
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain)
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -149,7 +149,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry /*const *skill*/, uint32 /*currentLevel*/, uint32 &gain)
+	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry /*const *skill*/, uint32 /*currentLevel*/, uint32 &gain) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -166,7 +166,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll)
+	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return true; // Continue with the default fishing skill update logic
@@ -185,7 +185,7 @@ public:
 		return true; // Continue with the default fishing skill update logic
 	}
 
-	void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement)
+	void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement) override
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", false) || 
 			!sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false) ||
@@ -193,7 +193,8 @@ public:
  
 		float expPercent = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.Scaling", 1.5f);
 		float expMultiplier = (expPercent * achievement->points) / 100;
- 
+
+		auto pLevel = player->GetLevel();
 		if (sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.ScaleLevel", false))
 			expMultiplier = ((expMultiplier * 100.0f) * (1.0f - (pLevel / 100.0f))) / 100.0f;
  
