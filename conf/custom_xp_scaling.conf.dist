@@ -1,0 +1,42 @@
+#
+# Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-AGPL3
+#
+
+[worldserver]
+
+########################################
+# My module configuration
+########################################
+#
+#    MyModule.Enable
+#        Description: Enable my module and print "Hello World" message at server start
+#        Default:     0 - Disabled
+#                     1 - Enabled
+#
+
+CustomXPScaling.Enable = 1
+CustomXPScaling.Announce = 1
+
+CustomXPScaling.LevelXP.Enable = 1
+CustomXPScaling.LevelXP.Scaling.1-9 = 1
+CustomXPScaling.LevelXP.Scaling.10-19 = 2
+CustomXPScaling.LevelXP.Scaling.20-29 = 3
+CustomXPScaling.LevelXP.Scaling.30-39 = 4
+CustomXPScaling.LevelXP.Scaling.40-49 = 5
+CustomXPScaling.LevelXP.Scaling.50-59 = 6
+CustomXPScaling.LevelXP.Scaling.60-69 = 7
+CustomXPScaling.LevelXP.Scaling.70-79 = 8
+
+CustomXPScaling.RareXP.Enable = 1
+CustomXPScaling.RareXP.Scaling = 3.0
+
+CustomXPScaling.Kill.Enable = 1
+CustomXPScaling.Kill.Scaling = 2.2
+
+CustomXPScaling.Quest.Enable = 1
+CustomXPScaling.Quest.Scaling = 0.4
+
+CustomXPScaling.AchievementXP.Enable = 1
+CustomXPScaling.AchievementXP.Percent = 1.0
+CustomXPScaling.AchievementXP.ScaleLevel = 0
+
