@@ -132,7 +132,7 @@ public:
 		player->GiveXP(xpToGive, nullptr);
 	}
 
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -149,7 +149,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry /*const *skill*/, uint32 /*currentLevel*/, uint32 &gain) override
+	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry /*const *skill*/, uint32 /*currentLevel*/, uint32 &gain)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
@@ -166,7 +166,7 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll) override
+	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return true; // Continue with the default fishing skill update logic
@@ -185,7 +185,7 @@ public:
 		return true; // Continue with the default fishing skill update logic
 	}
 
-	void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement) override
+	void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", false) || 
 			!sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false) ||
