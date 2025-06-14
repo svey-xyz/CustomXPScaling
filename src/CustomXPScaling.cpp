@@ -49,7 +49,7 @@ public:
 		else if (xpSource == XPSOURCE_EXPLORE)
 			calculatedXP *= GetExploreXPScaling();
 
-		LogToPlayer(player, String("XP Scaling: ") + std::to_string(calculatedXP) + " (Original: " + std::to_string(amount) + ")");
+		LogToPlayer(player, std::to_string("XP Scaling: ") + std::to_string(calculatedXP) + " (Original: " + std::to_string(amount) + ")");
 		// Round to nearest whole number and convert back to uint32
 		amount = static_cast<uint32>(std::round(calculatedXP));
 	}
@@ -163,7 +163,7 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, String("Gathering Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
+		LogToPlayer(player, std::to_string("Gathering Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -181,7 +181,7 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, String("Crafting Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
+		LogToPlayer(player, std::to_string("Crafting Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -199,7 +199,7 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, String("Fishing Skill XP: ") + std::to_string(xpReward) + " (Roll: " + std::to_string(roll) + ")");
+		LogToPlayer(player, std::to_string("Fishing Skill XP: ") + std::to_string(xpReward) + " (Roll: " + std::to_string(roll) + ")");
 		GivePlayerXP(player, xpReward);
 
 		return true; // Continue with the default fishing skill update logic
@@ -221,7 +221,7 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, String("Achievement XP: ") + std::to_string(xpReward) + " (Achievement Points: " + std::to_string(achievement->points) + ")");
+		LogToPlayer(player, std::to_string("Achievement XP: ") + std::to_string(xpReward) + " (Achievement Points: " + std::to_string(achievement->points) + ")");
 		GivePlayerXP(player, xpReward);
 	};
 };
