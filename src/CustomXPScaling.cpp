@@ -15,17 +15,17 @@
 // 		XPSOURCE_BATTLEGROUND = 4
 
 // Add player scripts
-class CustomXPScaling : public PlayerScript
+class spp_custom_xp_scaling : public PlayerScript
 {
 public:
-	CustomXPScaling() : PlayerScript("CustomXPScaling") {
+	spp_custom_xp_scaling() : PlayerScript("spp_custom_xp_scaling", {
 		PLAYERHOOK_ON_LOGIN,
 		PLAYERHOOK_ON_GIVE_EXP,
 		PLAYERHOOK_ON_UPDATE_GATHERING_SKILL,
 		PLAYERHOOK_ON_UPDATE_CRAFTING_SKILL,
 		PLAYERHOOK_ON_UPDATE_FISHING_SKILL,
 		PLAYERHOOK_ON_ACHI_COMPLETE
-	}
+	}) { }
 
 	void OnPlayerLogin(Player *player) override
 	{
@@ -229,5 +229,5 @@ public:
 // Add all scripts in one
 void AddSC_custom_xp_scaling()
 {
-	new CustomXPScaling();
+	new spp_custom_xp_scaling();
 }
