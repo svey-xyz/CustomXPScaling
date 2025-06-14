@@ -49,7 +49,9 @@ public:
 		else if (xpSource == XPSOURCE_EXPLORE)
 			calculatedXP *= GetExploreXPScaling();
 
-		LogToPlayer(player, std::to_string("XP Scaling: ") + std::to_string(calculatedXP) + " (Original: " + std::to_string(amount) + ")");
+		std::string Msg = "XP Scaling: ";
+		Msg.append(std::to_string(calculatedXP)).append(" (Original: ").append(std::to_string(amount)).append(")");
+		LogToPlayer(player, Msg);
 		// Round to nearest whole number and convert back to uint32
 		amount = static_cast<uint32>(std::round(calculatedXP));
 	}
@@ -163,7 +165,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, std::to_string("Gathering Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
+		std::string Msg = "XP Scaling: ";
+		Msg.append(std::to_string(xpReward)).append(" (Gain: ").append(std::to_string(gain)).append(")");
+		LogToPlayer(player, Msg);
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -181,7 +185,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, std::to_string("Crafting Skill XP: ") + std::to_string(xpReward) + " (Gain: " + std::to_string(gain) + ")");
+		std::string Msg = "XP Scaling: ";
+		Msg.append(std::to_string(xpReward)).append(" (Gain: ").append(std::to_string(gain)).append(")");
+		LogToPlayer(player, Msg);
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -199,7 +205,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, std::to_string("Fishing Skill XP: ") + std::to_string(xpReward) + " (Roll: " + std::to_string(roll) + ")");
+		std::string Msg = "XP Scaling: ";
+		Msg.append(std::to_string(xpReward)).append(" (Roll: ").append(std::to_string(roll)).append(")");
+		LogToPlayer(player, Msg);
 		GivePlayerXP(player, xpReward);
 
 		return true; // Continue with the default fishing skill update logic
@@ -221,7 +229,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		LogToPlayer(player, std::to_string("Achievement XP: ") + std::to_string(xpReward) + " (Achievement Points: " + std::to_string(achievement->points) + ")");
+		std::string Msg = "Achievement XP: ";
+		Msg.append(std::to_string(xpReward)).append(" (Achievement: ").append(achievement->name).append(")");
+		LogToPlayer(player, Msg);
 		GivePlayerXP(player, xpReward);
 	};
 };
