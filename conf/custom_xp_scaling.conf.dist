@@ -1,12 +1,8 @@
-#
-# Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-AGPL3
-#
-
 [worldserver]
 
-########################################
+################################################################################################################
 # Custom XP Scaling Configuration
-########################################
+################################################################################################################
 #
 #    CustomXPScaling.Enable
 #        Description: Enable Custom XP Scaling
@@ -16,6 +12,7 @@
 
 CustomXPScaling.Enable = 1
 CustomXPScaling.Announce = 1
+CustomXPScaling.LogToPlayer = 1
 
 CustomXPScaling.LevelXP.Enable = 1
 CustomXPScaling.LevelXP.Scaling.1-9 = 0.2
@@ -47,3 +44,4 @@ CustomXPScaling.AchievementXP.Enable = 1
 CustomXPScaling.AchievementXP.ScaleLevel = 1
 CustomXPScaling.AchievementXP.Scaling = 5.0
 
+##################################################################################################################
