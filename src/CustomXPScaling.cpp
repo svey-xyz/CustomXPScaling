@@ -54,7 +54,7 @@ public:
 		amount = static_cast<uint32>(std::round(calculatedXP));
 	}
 
-	void LogToPlayer(Player *player, String msg)
+	void LogToPlayer(Player *player, std::string msg)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
 			!sConfigMgr->GetOption<bool>("CustomXPScaling.LogToPlayer", false) || !player)
