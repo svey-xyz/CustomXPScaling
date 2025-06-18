@@ -49,9 +49,19 @@ public:
 		else if (xpSource == XPSOURCE_EXPLORE)
 			calculatedXP *= GetExploreXPScaling();
 
-		std::string Msg = "XP Scaling: ";
-		Msg.append(std::to_string(calculatedXP)).append(" (Original: ").append(std::to_string(amount)).append(")");
-		LogToPlayer(player, Msg);
+		std::stringstream ss;
+		ss << "XP Source: ";
+		switch (xpSource)
+		{
+			case XPSOURCE_KILL: ss << "Kill"; break;
+			case XPSOURCE_QUEST: ss << "Quest"; break;
+			case XPSOURCE_QUEST_DF: ss << "Quest (DF)"; break;
+			case XPSOURCE_EXPLORE: ss << "Explore"; break;
+			case XPSOURCE_BATTLEGROUND: ss << "Battleground"; break;
+			default: ss << "Unknown";
+		}
+		ss << " | Original XP: " << amount << " | Calculated XP: " << calculatedXP;
+		LogToPlayer(player, ss.str());
 		// Round to nearest whole number and convert back to uint32
 		amount = static_cast<uint32>(std::round(calculatedXP));
 	}
@@ -165,9 +175,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		std::string Msg = "XP Scaling: ";
-		Msg.append(std::to_string(xpReward)).append(" (Gain: ").append(std::to_string(gain)).append(")");
-		LogToPlayer(player, Msg);
+		std::stringstream ss;
+		ss << "Gathering XP: " << xpReward << " (Gain: " << gain << ")";
+		LogToPlayer(player, ss.str());
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -185,9 +195,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		std::string Msg = "XP Scaling: ";
-		Msg.append(std::to_string(xpReward)).append(" (Gain: ").append(std::to_string(gain)).append(")");
-		LogToPlayer(player, Msg);
+		std::stringstream ss;
+		ss << "Crafting XP: " << xpReward << " (Gain: " << gain << ")";
+		LogToPlayer(player, ss.str());
 		GivePlayerXP(player, xpReward);
 	}
 
@@ -205,9 +215,9 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		std::string Msg = "XP Scaling: ";
-		Msg.append(std::to_string(xpReward)).append(" (Roll: ").append(std::to_string(roll)).append(")");
-		LogToPlayer(player, Msg);
+		std::stringstream ss;
+		ss << "Fishing XP: " << xpReward << " (Roll: " << roll << ")";
+		LogToPlayer(player, ss.str());
 		GivePlayerXP(player, xpReward);
 
 		return true; // Continue with the default fishing skill update logic
@@ -229,9 +239,10 @@ public:
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
 		float xpReward = xpMax * expMultiplier;
 
-		std::string Msg = "Achievement XP: ";
-		Msg.append(std::to_string(xpReward)).append(" (Achievement: ").append(achievement->name).append(")");
-		LogToPlayer(player, Msg);
+		std::stringstream ss;
+		ss <<  "Achievement XP: " << xpReward << " (Points: " << achievement->points << ")";
+
+		LogToPlayer(player, ss.str());
 		GivePlayerXP(player, xpReward);
 	};
 };
