@@ -3,7 +3,7 @@
  */
 
 #include "Chat.h"
-#include "Configuration/Config.h"
+#include "Config.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 
