@@ -4,7 +4,6 @@
 
 #include "ScriptMgr.h"
 #include "Player.h"
-#include "Config.h"
 #include "Chat.h"
 #include "Configuration/Config.h"
 
@@ -72,7 +71,7 @@ public:
 			!sConfigMgr->GetOption<bool>("CustomXPScaling.LogToPlayer", false) || !player)
 			return;
 
-			ChatHandler(player->GetSession()).SendSysMessage(msg);
+		ChatHandler(player->GetSession()).SendSysMessage(msg);
 	}
 
 	float GetLevelXPScaling(Player *player)
