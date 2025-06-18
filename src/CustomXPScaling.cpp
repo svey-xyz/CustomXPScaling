@@ -175,7 +175,7 @@ public:
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
 				!sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
-			return 1.0f;
+			return;
 
 		float professionXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 0.01f);
 
