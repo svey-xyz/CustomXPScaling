@@ -31,15 +31,17 @@ public:
 			return;
 
 
+		std::stringstream XPScalingSources;
+
 		// Calculate new XP with floating-point multiplication
-		float calculatedXP = static_cast<float>(amount) * GetLevelXPScaling(player);
+		float calculatedXP = static_cast<float>(amount) * GetLevelXPScaling(player, XPScalingSources);
 
 		if (xpSource == XPSOURCE_QUEST || xpSource == XPSOURCE_QUEST_DF)
-			calculatedXP *= GetQuestXPScaling();
+			calculatedXP *= GetQuestXPScaling(XPScalingSources);
 		else if (xpSource == XPSOURCE_KILL)
-			calculatedXP *= GetKillXPScaling(player, victim);
+			calculatedXP *= GetKillXPScaling(player, victim, XPScalingSources);
 		else if (xpSource == XPSOURCE_EXPLORE)
-			calculatedXP *= GetExploreXPScaling();
+			calculatedXP *= GetExploreXPScaling(XPScalingSources);
 
 		std::stringstream ss;
 		ss << "XP Source: ";
@@ -52,7 +54,7 @@ public:
 			case XPSOURCE_BATTLEGROUND: ss << "Battleground"; break;
 			default: ss << "Unknown";
 		}
-		ss << " | Original XP: " << amount << " | Calculated XP: " << calculatedXP;
+		ss << " | Original XP: " << amount << " | Calculated XP: " << std::round(calculatedXP) << " | Scaling Sources: " << XPScalingSources.str();
 		LogToPlayer(player, ss.str());
 		// Round to nearest whole number and convert back to uint32
 		amount = static_cast<uint32>(std::round(calculatedXP));
@@ -67,10 +69,14 @@ public:
 		ChatHandler(player->GetSession()).SendSysMessage(msg);
 	}
 
-	float GetLevelXPScaling(Player *player)
+	float GetLevelXPScaling(Player *player, std::stringstream &XPScalingSources)
 	{
 
 		float levelXPScaling = 1.0f; // Default multiplier
+
+		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !player ||
+				!sConfigMgr->GetOption<bool>("CustomXPScaling.LevelXP.Enable", true))
+			return levelXPScaling;
 
 		if (player->GetLevel() <= 9)
 			levelXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.1-9", 0.2f);
@@ -89,10 +95,15 @@ public:
 		else if (player->GetLevel() <= 79)
 			levelXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.70-79", 1.3f);
 
+		// std::stringstream ss;
+		// ss << "Level XP Scaling Percent: " << levelXPScaling * 100.0f << "% (Level: " << player->GetLevel() << ")";
+		// LogToPlayer(player, ss.str());
+		XPScalingSources << " Level: " << levelXPScaling * 100.0f << "% |";
+
 		return levelXPScaling;
 	}
 
-	float GetKillXPScaling(Player *player, Unit *victim)
+	float GetKillXPScaling(Player *player, Unit *victim, std::stringstream &XPScalingSources)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
 				!player || !victim || !victim->IsCreature() || victim->IsPlayer() || !victim->ToCreature())
@@ -103,6 +114,7 @@ public:
 		if (sConfigMgr->GetOption<bool>("CustomXPScaling.KillXP.Enable", false))
 		{
 			killXPScaling = killXPScaling * sConfigMgr->GetOption<float>("CustomXPScaling.KillXP.Scaling", 1.0f);
+			XPScalingSources << " Kill: " << killXPScaling * 100.0f << "% |";
 		}
 
 		if (sConfigMgr->GetOption<bool>("CustomXPScaling.RareXP.Enable", false))
@@ -111,30 +123,36 @@ public:
 			auto creatureProto = creature->GetCreatureTemplate();
 
 			if (creatureProto->rank == CREATURE_ELITE_NORMAL || creatureProto->rank == CREATURE_ELITE_RARE ||
-					creatureProto->rank == CREATURE_ELITE_RAREELITE || creatureProto->rank == CREATURE_ELITE_ELITE)
-				killXPScaling = killXPScaling * sConfigMgr->GetOption<float>("CustomXPScaling.RareXP.Scaling", 1.0);
+				creatureProto->rank == CREATURE_ELITE_RAREELITE || creatureProto->rank == CREATURE_ELITE_ELITE)
+			{
+				float rareXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.RareXP.Scaling", 1.0f);
+				killXPScaling = killXPScaling * rareXPScaling;
+				XPScalingSources << " Rare: " << rareXPScaling * 100.0f << "% |";
+			}
 		}
 		
 		return killXPScaling;
 	}
 
-	float GetExploreXPScaling()
+	float GetExploreXPScaling(std::stringstream &XPScalingSources)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
 				!sConfigMgr->GetOption<bool>("CustomXPScaling.ExploreXP.Enable", true))
 			return 1.0f;
 
 		float exploreXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.ExploreXP.Scaling", 1.0);
+		XPScalingSources << " Explore: " << exploreXPScaling * 100.0f << "% |";
 		return exploreXPScaling;
 	}
 
-	float GetQuestXPScaling()
+	float GetQuestXPScaling(std::stringstream &XPScalingSources)
 	{
 		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
 				!sConfigMgr->GetOption<bool>("CustomXPScaling.QuestXP.Enable", true))
 			return 1.0f;
 
 		float questXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.QuestXP.Scaling", 1.0);
+		XPScalingSources << " Quest: " << questXPScaling * 100.0f << "% |";
 		return questXPScaling;
 	}
 
@@ -153,65 +171,37 @@ public:
 		player->GiveXP(xpToGive, nullptr);
 	}
 
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
+	void GiveProfessionXP(Player *player)
 	{
-		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
-			return;
+		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) ||
+				!sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
+			return 1.0f;
 
-		float expPercent = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 1.5f);
-		float expMultiplier = (expPercent * gain) / 100;
-
-		if (sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.ScaleLevel", false))
-			expMultiplier = ((expMultiplier * 100.0f) * (1.0f - (player->GetLevel() / 100.0f))) / 100.0f;
+		float professionXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 0.01f);
 
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
-		float xpReward = xpMax * expMultiplier;
+		float xpReward = xpMax * professionXPScaling;
 
 		std::stringstream ss;
-		ss << "Gathering XP: " << xpReward << " (Gain: " << gain << ")";
+		ss << "Profession XP: " << xpReward;
 		LogToPlayer(player, ss.str());
+
 		GivePlayerXP(player, xpReward);
+	}
+
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
+	{
+		GiveProfessionXP(player);
 	}
 
 	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const */*const *skill*/, uint32 /*currentLevel*/, uint32 &gain) override
 	{
-		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
-			return;
-
-		float expPercent = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 1.5f);
-		float expMultiplier = (expPercent * gain) / 100;
-
-		if (sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.ScaleLevel", false))
-			expMultiplier = ((expMultiplier * 100.0f) * (1.0f - (player->GetLevel() / 100.0f))) / 100.0f;
-
-		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
-		float xpReward = xpMax * expMultiplier;
-
-		std::stringstream ss;
-		ss << "Crafting XP: " << xpReward << " (Gain: " << gain << ")";
-		LogToPlayer(player, ss.str());
-		GivePlayerXP(player, xpReward);
+		GiveProfessionXP(player);
 	}
 
 	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll) override
 	{
-		if (!sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true) || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
-			return true; // Continue with the default fishing skill update logic
-
-		float expPercent = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 1.5f);
-		float expMultiplier = (expPercent * roll) / 100;
-
-		if (sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.ScaleLevel", false))
-			expMultiplier = ((expMultiplier * 100.0f) * (1.0f - (player->GetLevel() / 100.0f))) / 100.0f;
-
-		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
-		float xpReward = xpMax * expMultiplier;
-
-		std::stringstream ss;
-		ss << "Fishing XP: " << xpReward << " (Roll: " << roll << ")";
-		LogToPlayer(player, ss.str());
-		GivePlayerXP(player, xpReward);
-
+		GiveProfessionXP(player);
 		return true; // Continue with the default fishing skill update logic
 	}
 
@@ -221,20 +211,15 @@ public:
 			!sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false) ||
 			!player || !achievement) return;
  
-		float expPercent = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.Scaling", 1.5f);
-		float expMultiplier = (expPercent * achievement->points) / 100;
-
-		auto pLevel = player->GetLevel();
-		if (sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.ScaleLevel", false))
-			expMultiplier = ((expMultiplier * 100.0f) * (1.0f - (pLevel / 100.0f))) / 100.0f;
+		float achievementXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.Scaling", 0.1f);
  
 		float xpMax = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
-		float xpReward = xpMax * expMultiplier;
+		float xpReward = xpMax * achievementXPScaling;
 
 		std::stringstream ss;
 		ss <<  "Achievement XP: " << xpReward << " (Points: " << achievement->points << ")";
-
 		LogToPlayer(player, ss.str());
+
 		GivePlayerXP(player, xpReward);
 	};
 };
