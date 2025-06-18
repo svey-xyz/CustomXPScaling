@@ -128,7 +128,7 @@ public:
 				bool rareRankScaling = sConfigMgr->GetOption<bool>("CustomXPScaling.RareXP.RankScaling", true);
 				float rareXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.RareXP.Scaling", 1.0f);
 				if (rareRankScaling) rareXPScaling = rareXPScaling * creatureRank;
-				
+
 				killXPScaling = killXPScaling * rareXPScaling;
 				XPScalingSources << " Rare: " << rareXPScaling * 100.0f << "% |";
 			}
@@ -192,17 +192,17 @@ public:
 		GivePlayerXP(player, xpReward);
 	}
 
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &gain) override
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 &/*gain*/) override
 	{
 		GiveProfessionXP(player);
 	}
 
-	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const */*const *skill*/, uint32 /*currentLevel*/, uint32 &gain) override
+	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const */*const *skill*/, uint32 /*currentLevel*/, uint32 &/*gain*/) override
 	{
 		GiveProfessionXP(player);
 	}
 
-	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 roll) override
+	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 /*roll*/) override
 	{
 		GiveProfessionXP(player);
 		return true; // Continue with the default fishing skill update logic
