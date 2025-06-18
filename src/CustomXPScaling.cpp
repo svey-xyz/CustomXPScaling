@@ -2,10 +2,10 @@
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-AGPL3
  */
 
-#include "ScriptMgr.h"
-#include "Player.h"
 #include "Chat.h"
 #include "Configuration/Config.h"
+#include "Player.h"
+#include "ScriptMgr.h"
 
 // 		XPSOURCE_KILL = 0,
 // 		XPSOURCE_QUEST = 1,
@@ -14,10 +14,10 @@
 // 		XPSOURCE_BATTLEGROUND = 4
 
 // Add player scripts
-class spp_custom_xp_scaling : public PlayerScript
+class CustomXPScaling : public PlayerScript
 {
 public:
-	spp_custom_xp_scaling() : PlayerScript("spp_custom_xp_scaling", {
+	CustomXPScaling() : PlayerScript("CustomXPScaling", {
 		PLAYERHOOK_ON_LOGIN,
 		PLAYERHOOK_ON_GIVE_EXP,
 		PLAYERHOOK_ON_UPDATE_GATHERING_SKILL,
@@ -247,7 +247,7 @@ public:
 };
 
 // Add all scripts in one
-void AddSC_custom_xp_scaling()
+void AddCustomXPScalingScripts()
 {
-	new spp_custom_xp_scaling();
+	new CustomXPScaling();
 }

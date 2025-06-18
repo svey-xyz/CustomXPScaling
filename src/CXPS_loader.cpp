@@ -3,13 +3,13 @@
  */
 
 // From SC
-void AddSC_custom_xp_scaling();
+void AddCustomXPScalingScripts();
 
 // Add all
 // cf. the naming convention https://github.com/azerothcore/azerothcore-wotlk/blob/master/doc/changelog/master.md#how-to-upgrade-4
 // additionally replace all '-' in the module folder name with '_' here
 void Addmod_custom_xp_scalingScripts()
 {
-	AddSC_custom_xp_scaling();
+	AddCustomXPScalingScripts();
 }
 
