@@ -121,11 +121,14 @@ public:
 		{
 			auto creature = victim->ToCreature();
 			auto creatureProto = creature->GetCreatureTemplate();
+			auto creatureRank = creatureProto->rank;
 
-			if (creatureProto->rank == CREATURE_ELITE_NORMAL || creatureProto->rank == CREATURE_ELITE_RARE ||
-				creatureProto->rank == CREATURE_ELITE_RAREELITE || creatureProto->rank == CREATURE_ELITE_ELITE)
+			if (creatureRank > 0)
 			{
+				bool rareRankScaling = sConfigMgr->GetOption<bool>("CustomXPScaling.RareXP.RankScaling", true);
 				float rareXPScaling = sConfigMgr->GetOption<float>("CustomXPScaling.RareXP.Scaling", 1.0f);
+				if (rareRankScaling) rareXPScaling = rareXPScaling * creatureRank;
+				
 				killXPScaling = killXPScaling * rareXPScaling;
 				XPScalingSources << " Rare: " << rareXPScaling * 100.0f << "% |";
 			}
