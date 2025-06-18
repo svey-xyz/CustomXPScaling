@@ -17,14 +17,7 @@
 class CustomXPScaling : public PlayerScript
 {
 public:
-	CustomXPScaling() : PlayerScript("CustomXPScaling", {
-		PLAYERHOOK_ON_LOGIN,
-		PLAYERHOOK_ON_GIVE_EXP,
-		PLAYERHOOK_ON_UPDATE_GATHERING_SKILL,
-		PLAYERHOOK_ON_UPDATE_CRAFTING_SKILL,
-		PLAYERHOOK_ON_UPDATE_FISHING_SKILL,
-		PLAYERHOOK_ON_ACHI_COMPLETE
-	}) { }
+	CustomXPScaling() : PlayerScript("CustomXPScaling") { }
 
 	void OnPlayerLogin(Player *player) override
 	{
