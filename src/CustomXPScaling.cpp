@@ -7,15 +7,6 @@
 #include "Player.h"
 #include "ScriptMgr.h"
 
-enum XPSource : uint8
-{
-	XPSOURCE_KILL = 0,
-	XPSOURCE_QUEST = 1,
-	XPSOURCE_QUEST_DF = 2,
-	XPSOURCE_EXPLORE = 3,
-	XPSOURCE_BATTLEGROUND = 4
-};
-
 class CustomXPScaling : public PlayerScript
 {
 public:
