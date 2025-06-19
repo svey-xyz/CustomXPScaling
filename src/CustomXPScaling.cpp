@@ -41,7 +41,7 @@ public:
 			scalingFactor *= GetQuestScalingFactor(shouldLog ? &scalingSources : nullptr);
 			break;
 		case XPSOURCE_KILL:
-			scalingFactor *= GetKillScalingFactor(player, victim, shouldLog ? &scalingSources : nullptr);
+			scalingFactor *= GetKillScalingFactor(victim, shouldLog ? &scalingSources : nullptr);
 			break;
 		case XPSOURCE_EXPLORE:
 			scalingFactor *= GetExploreScalingFactor(shouldLog ? &scalingSources : nullptr);
@@ -105,7 +105,7 @@ private:
 		return scaling;
 	}
 
-	float GetKillScalingFactor(Player *player, const Unit *victim, std::stringstream *logStream) const
+	float GetKillScalingFactor(const Unit *victim, std::stringstream *logStream) const
 	{
 		float scaling = 1.0f;
 
