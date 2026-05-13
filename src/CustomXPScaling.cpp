@@ -4,13 +4,23 @@
 
 #include "Chat.h"
 #include "Config.h"
+#include "DBCStores.h"
 #include "Player.h"
+#include "Random.h"
 #include "ScriptMgr.h"
 
 class CustomXPScaling : public PlayerScript
 {
 public:
 	CustomXPScaling() : PlayerScript("CustomXPScaling") {}
+
+	enum ProfessionDifficulty
+	{
+		PROF_DIFF_GRAY = 0,
+		PROF_DIFF_GREEN,
+		PROF_DIFF_YELLOW,
+		PROF_DIFF_ORANGE
+	};
 
 	void OnPlayerLogin(Player *player) override
 	{
@@ -211,42 +221,155 @@ private:
 		ChatHandler(player->GetSession()).SendSysMessage(logMsg.str());
 	}
 
-	void GiveProfessionXP(Player *player) const
+	// Parse "base:randomizer" config (e.g. "1.0:0.25").
+	// Both values are absolute percentages of the player's next-level XP.
+	// Resulting roll: (base + frand(-randomizer, +randomizer)) percent of next-level XP.
+	void ParseProfessionLevelPercent(float &basePercent, float &randomizer) const
+	{
+		const std::string raw = sConfigMgr->GetOption<std::string>("CustomXPScaling.ProfessionsXP.LevelPercent", "1.0:0.25");
+		basePercent = 1.0f;
+		randomizer = 0.25f;
+
+		const auto colon = raw.find(':');
+		if (colon == std::string::npos)
+			return;
+
+		try
+		{
+			basePercent = std::stof(raw.substr(0, colon));
+			randomizer = std::stof(raw.substr(colon + 1));
+		}
+		catch (...)
+		{
+			// keep defaults on malformed config
+		}
+
+		if (randomizer < 0.0f)
+			randomizer = 0.0f;
+	}
+
+	float GetDifficultyMultiplier(ProfessionDifficulty diff, const char *&label) const
+	{
+		switch (diff)
+		{
+		case PROF_DIFF_GRAY:
+			label = "Gray";
+			return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Gray", 0.0f);
+		case PROF_DIFF_GREEN:
+			label = "Green";
+			return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Green", 0.5f);
+		case PROF_DIFF_YELLOW:
+			label = "Yellow";
+			return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Yellow", 1.0f);
+		case PROF_DIFF_ORANGE:
+			label = "Orange";
+			return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Orange", 1.5f);
+		}
+		label = "Unknown";
+		return 1.0f;
+	}
+
+	// Classifies a profession action by its skill-color relative to the player's
+	// current skill, matching the gray/green/yellow/orange thresholds AzerothCore
+	// uses for skill-up rolls. See PlayerUpdates.cpp (UpdateGatherSkill / UpdateCraftSkill).
+	static ProfessionDifficulty ClassifyDifficulty(uint32 currentLevel, uint32 yellow, uint32 green, uint32 gray)
+	{
+		if (currentLevel >= gray)
+			return PROF_DIFF_GRAY;
+		if (currentLevel >= green)
+			return PROF_DIFF_GREEN;
+		if (currentLevel >= yellow)
+			return PROF_DIFF_YELLOW;
+		return PROF_DIFF_ORANGE;
+	}
+
+	void GiveProfessionXP(Player *player, ProfessionDifficulty diff, const char *source) const
 	{
 		if (!player || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
 			return;
 
-		const float professionScaling = sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Scaling", 0.01f);
+		const char *diffLabel = "Unknown";
+		const float diffMult = GetDifficultyMultiplier(diff, diffLabel);
+
+		// A non-positive multiplier means "no XP at this difficulty" (gray by default).
+		if (diffMult <= 0.0f)
+			return;
+
+		float basePercent = 1.0f;
+		float randomizer = 0.25f;
+		ParseProfessionLevelPercent(basePercent, randomizer);
+
+		// Roll a random offset in [-randomizer, +randomizer], scale by difficulty.
+		const float roll = randomizer > 0.0f ? frand(-randomizer, randomizer) : 0.0f;
+		const float effectivePercent = std::max(0.0f, (basePercent + roll) * diffMult);
+
 		const uint32 nextLevelXP = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
-		const float xpReward = nextLevelXP * professionScaling;
+		const uint32 xpReward = static_cast<uint32>(std::round(nextLevelXP * (effectivePercent / 100.0f)));
+
+		if (xpReward == 0)
+			return;
 
 		if (ShouldLogToPlayer())
 		{
 			std::stringstream logMsg;
-			logMsg << "Profession XP: " << static_cast<uint32>(std::round(xpReward));
+			logMsg << "Profession XP (" << source << ", " << diffLabel << "): " << xpReward
+						 << " | " << effectivePercent << "% of next level"
+						 << " | base " << basePercent << "% +/- " << randomizer
+						 << "% x " << diffMult;
 			ChatHandler(player->GetSession()).SendSysMessage(logMsg.str());
 		}
 
-		player->GiveXP(static_cast<uint32>(std::round(xpReward)), nullptr);
+		player->GiveXP(xpReward, nullptr);
 	}
 
 	// Profession skill handlers
-	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 /*currentLevel*/, uint32 /*gray*/, uint32 /*green*/, uint32 /*yellow*/, uint32 & /*gain*/) override
+	void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 currentLevel, uint32 gray, uint32 green, uint32 yellow, uint32 & /*gain*/) override
 	{
-		if (IsEnabled())
-			GiveProfessionXP(player);
+		if (!IsEnabled())
+			return;
+
+		const ProfessionDifficulty diff = ClassifyDifficulty(currentLevel, yellow, green, gray);
+		GiveProfessionXP(player, diff, "Gather");
 	}
 
-	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const * /*skill*/, uint32 /*currentLevel*/, uint32 & /*gain*/) override
+	void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const *skill, uint32 currentLevel, uint32 & /*gain*/) override
 	{
-		if (IsEnabled())
-			GiveProfessionXP(player);
+		if (!IsEnabled())
+			return;
+
+		// SkillLineAbilityEntry exposes high/low trivial ranks; AC's UpdateCraftSkill
+		// uses high = gray, low = yellow, midpoint = green for its skill-up odds.
+		ProfessionDifficulty diff = PROF_DIFF_YELLOW;
+		if (skill)
+		{
+			const uint32 gray = skill->TrivialSkillLineRankHigh;
+			const uint32 yellow = skill->TrivialSkillLineRankLow;
+			const uint32 green = (gray + yellow) / 2;
+			diff = ClassifyDifficulty(currentLevel, yellow, green, gray);
+		}
+
+		GiveProfessionXP(player, diff, "Craft");
 	}
 
-	bool OnPlayerUpdateFishingSkill(Player *player, int32 /*skill*/, int32 /*zone_skill*/, int32 /*chance*/, int32 /*roll*/) override
+	bool OnPlayerUpdateFishingSkill(Player *player, int32 skill, int32 zone_skill, int32 /*chance*/, int32 /*roll*/) override
 	{
-		if (IsEnabled())
-			GiveProfessionXP(player);
+		if (!IsEnabled())
+			return true;
+
+		// Fishing has no DB-defined trivial thresholds — approximate from skill
+		// vs. zone requirement so high-level fishing in low-level zones decays to gray.
+		const int32 delta = skill - zone_skill;
+		ProfessionDifficulty diff;
+		if (delta >= 100)
+			diff = PROF_DIFF_GRAY;
+		else if (delta >= 50)
+			diff = PROF_DIFF_GREEN;
+		else if (delta >= 0)
+			diff = PROF_DIFF_YELLOW;
+		else
+			diff = PROF_DIFF_ORANGE;
+
+		GiveProfessionXP(player, diff, "Fish");
 		return true; // Continue with default handling
 	}
 

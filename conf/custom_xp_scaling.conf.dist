@@ -15,8 +15,8 @@ CustomXPScaling.Announce = 1
 CustomXPScaling.LogToPlayer = 1
 
 CustomXPScaling.LevelXP.Enable = 1
-CustomXPScaling.LevelXP.Scaling.1-9 = 0.2
-CustomXPScaling.LevelXP.Scaling.10-19 = 0.3
+CustomXPScaling.LevelXP.Scaling.1-9 = 0.4
+CustomXPScaling.LevelXP.Scaling.10-19 = 0.5
 CustomXPScaling.LevelXP.Scaling.20-29 = 0.8
 CustomXPScaling.LevelXP.Scaling.30-39 = 1.0
 CustomXPScaling.LevelXP.Scaling.40-49 = 1.2
@@ -25,20 +25,48 @@ CustomXPScaling.LevelXP.Scaling.60-69 = 1.3
 CustomXPScaling.LevelXP.Scaling.70-79 = 1.3
 
 CustomXPScaling.KillXP.Enable = 1
-CustomXPScaling.KillXP.Scaling = 2.2
+CustomXPScaling.KillXP.Scaling = 1.8
 
 CustomXPScaling.RareXP.Enable = 1
-CustomXPScaling.RareXP.Scaling = 3.0
+CustomXPScaling.RareXP.Scaling = 1.5
 
 CustomXPScaling.QuestXP.Enable = 1
-CustomXPScaling.QuestXP.Scaling = 0.4
+CustomXPScaling.QuestXP.Scaling = 1.0
 
 CustomXPScaling.ExploreXP.Enable = 1
 CustomXPScaling.ExploreXP.Scaling = 5.0
 
+################################################################################################################
+# Profession XP
+#
+# Awards XP whenever a player gathers, crafts, or fishes. The amount is a
+# percentage of the XP required for the player's *current level*, scaled by the
+# difficulty of the action (gray / green / yellow / orange — same color logic
+# AzerothCore uses to roll skill-ups, see PlayerUpdates.cpp).
+#
+#   LevelPercent = "<base>:<randomizer>"
+#     Both values are absolute percentages of next-level XP.
+#     Each profession tick rolls a final percent of:
+#         (base + frand(-randomizer, +randomizer)) * DifficultyMultiplier
+#     Example: "1.0:0.25" with a Yellow task at multiplier 1.0
+#         → 0.75% – 1.25% of next-level XP.
+#
+#   Difficulty.* multipliers stack on top of the rolled base percent.
+#     Gray   = 0.0  → no XP for trivial tasks (set > 0 to enable)
+#     Green  = 0.5  → half rate for easy tasks
+#     Yellow = 1.0  → baseline rate
+#     Orange = 1.5  → 50% bonus for difficult tasks
+#
+# Fishing has no DB-defined trivial thresholds; difficulty is approximated from
+# (player_skill - zone_skill): >=100 gray, >=50 green, >=0 yellow, else orange.
+################################################################################################################
+
 CustomXPScaling.ProfessionsXP.Enable = 1
-CustomXPScaling.ProfessionsXP.ScaleLevel = 1
-CustomXPScaling.ProfessionsXP.Scaling = 5.0
+CustomXPScaling.ProfessionsXP.LevelPercent = "3.0:1.25"
+CustomXPScaling.ProfessionsXP.Difficulty.Gray   = 0.25
+CustomXPScaling.ProfessionsXP.Difficulty.Green  = 1.0
+CustomXPScaling.ProfessionsXP.Difficulty.Yellow = 1.2
+CustomXPScaling.ProfessionsXP.Difficulty.Orange = 2.0
 
 CustomXPScaling.AchievementXP.Enable = 1
 CustomXPScaling.AchievementXP.ScaleLevel = 1
