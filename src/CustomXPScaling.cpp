@@ -109,7 +109,9 @@ private:
     // Server enable + per-character opt-in/out. Mirrors ShouldLogToPlayer:
     // tri-state PlayerSetting where 0/unset inherits the server default and an
     // explicit on/off overrides it, gated by an admin-side AllowPlayerToggle.
-    bool IsEnabledFor(Player const *player) const
+    // Takes Player * (non-const) because AC's GetPlayerSetting is not marked
+    // const -- keeps the signature honest and avoids casts in callers.
+    bool IsEnabledFor(Player *player) const
     {
         if (!IsEnabled())
             return false;
@@ -485,16 +487,20 @@ private:
         player->GiveXP(xpReward, nullptr);
     }
 
-    // The hook provides Player const* so we const_cast to call GiveXP.
-    // This is safe — the core does not rely on the player being unmodified
-    // after this hook fires, and GiveXP has no lasting side-effects here
-    // beyond the standard level-up path.
-    void OnPlayerLearnTaxiNode(Player const *player, uint32 /*nodeId*/) override
+    // The hook provides Player const* so we const_cast once at the top and
+    // pass the non-const through to IsEnabledFor / GiveTaxiNodeXP. Safe -- the
+    // core does not rely on the player being unmodified after this hook fires,
+    // and GiveXP has no lasting side-effects beyond the standard level-up path.
+    void OnPlayerLearnTaxiNode(Player const *constPlayer, uint32 /*nodeId*/) override
     {
-        if (!player || !IsEnabledFor(player))
+        if (!constPlayer)
             return;
 
-        GiveTaxiNodeXP(const_cast<Player *>(player));
+        Player *player = const_cast<Player *>(constPlayer);
+        if (!IsEnabledFor(player))
+            return;
+
+        GiveTaxiNodeXP(player);
     }
 };
 
@@ -562,15 +568,14 @@ public:
     static bool HandleAboutCommand(ChatHandler *handler)
     {
         handler->SendSysMessage("|cff4CFF00Custom XP Scaling|r");
-        handler->SendSysMessage("Reshapes XP gains across every source the core exposes:");
-        handler->SendSysMessage("kills, quests, exploration, battlegrounds, professions,");
-        handler->SendSysMessage("flight-path discovery, and achievements. Low levels can be");
-        handler->SendSysMessage("slowed, mid/high levels accelerated, and activities that");
-        handler->SendSysMessage("normally award no XP (gathering, crafting, fishing, taxi");
-        handler->SendSysMessage("nodes, achievements) grant a rolled percent of next-level XP.");
-        handler->SendSysMessage("Type .xpscaling help for the command list.");
+        handler->SendSysMessage("Reshapes XP gains across the server; scaling factors are configured by the admin");
+				handler->SendSysMessage(" and can vary by level and activity. Check your server's about or wiki for details.");
+				handler->SendSysMessage("Preferences are per-character and optionally player-toggleable,");
+				handler->SendSysMessage("with live XP gain breakdowns in chat if logging is enabled.");
+				handler->SendSysMessage("Prefer standard XP gains? Type |cff4CFF00.xpscaling off|r to disable for your character.");
+				handler->SendSysMessage("Type .xpscaling help for the command list.");
         return true;
-    }
+		}
 
 private:
     static bool SetLogPref(ChatHandler *handler, bool enabled)
