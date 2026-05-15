@@ -13,6 +13,19 @@
 CustomXPScaling.Enable = 1
 CustomXPScaling.Announce = 1
 
+#    CustomXPScaling.AllowPlayerToggle
+#        Description: Allow players to opt their own character in or out of
+#                     XP scaling with .xpscaling on / .xpscaling off. The
+#                     choice is stored through AzerothCore's PlayerSetting
+#                     API, so the core's PlayerSettings.Enable option must
+#                     be 1 for it to persist across sessions. When this is
+#                     disabled, the server-wide CustomXPScaling.Enable above
+#                     is enforced for everyone and the command is unavailable.
+#        Default:     1 - Players can toggle
+#                     0 - Server default is enforced
+
+CustomXPScaling.AllowPlayerToggle = 1
+
 #    CustomXPScaling.LogToPlayer
 #        Description: Server-wide default for per-event XP log messages in player chat.
 #                     Players can override this with .xpscaling log on/off if

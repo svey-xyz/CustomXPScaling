@@ -21,12 +21,16 @@ namespace
     // core's PlayerSettings.Enable option for the choice to persist.
     constexpr char const *CXPS_SETTINGS_SOURCE = "mod-cxps";
     constexpr uint8 CXPS_SETTING_LOG = 0;
+    constexpr uint8 CXPS_SETTING_ENABLE = 1;
 
-    // Stored value for CXPS_SETTING_LOG. Tri-state so an explicit "off" is
-    // distinguishable from "never chose" -- GetPlayerSetting yields 0 when unset,
-    // which we treat as "inherit the server default".
+    // Stored values for the CXPS_SETTING_* slots. Tri-state so an explicit "off"
+    // is distinguishable from "never chose" -- GetPlayerSetting yields 0 when
+    // unset, which we treat as "inherit the server default".
     constexpr uint32 CXPS_LOG_OFF = 1; // player forced logging off
     constexpr uint32 CXPS_LOG_ON = 2;  // player forced logging on
+
+    constexpr uint32 CXPS_ENABLE_OFF = 1; // player opted out of XP scaling
+    constexpr uint32 CXPS_ENABLE_ON = 2;  // player opted in to XP scaling
 }
 
 class CustomXPScaling : public PlayerScript
@@ -46,16 +50,18 @@ public:
     {
         if (sConfigMgr->GetOption<bool>("CustomXPScaling.Announce", true))
         {
-            ChatHandler(player->GetSession()).SendSysMessage("This server is running the |cff4CFF00Custom XP Scaling |rmodule.");
+            ChatHandler(player->GetSession()).SendSysMessage(
+                "This server is running the |cff4CFF00Custom XP Scaling|r module. "
+                "For more info, type .xpscaling help or .xpscaling about.");
         }
-        // The per-player log preference is loaded by the core via the
-        // PlayerSetting API before this hook fires -- see ShouldLogToPlayer.
-        // Nothing module-side to load or cache here.
+        // The per-player log/enable preferences are loaded by the core via the
+        // PlayerSetting API before this hook fires -- see ShouldLogToPlayer and
+        // IsEnabledFor. Nothing module-side to load or cache here.
     }
 
     void OnPlayerGiveXP(Player *player, uint32 &amount, Unit *victim, uint8 xpSource) override
     {
-        if (!player || !IsEnabled())
+        if (!player || !IsEnabledFor(player))
             return;
 
         const bool shouldLog = ShouldLogToPlayer(player);
@@ -98,6 +104,29 @@ private:
     bool IsEnabled() const
     {
         return sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true);
+    }
+
+    // Server enable + per-character opt-in/out. Mirrors ShouldLogToPlayer:
+    // tri-state PlayerSetting where 0/unset inherits the server default and an
+    // explicit on/off overrides it, gated by an admin-side AllowPlayerToggle.
+    bool IsEnabledFor(Player const *player) const
+    {
+        if (!IsEnabled())
+            return false;
+
+        if (player && sConfigMgr->GetOption<bool>("CustomXPScaling.AllowPlayerToggle", true))
+        {
+            switch (player->GetPlayerSetting(CXPS_SETTINGS_SOURCE, CXPS_SETTING_ENABLE).value)
+            {
+            case CXPS_ENABLE_OFF:
+                return false;
+            case CXPS_ENABLE_ON:
+                return true;
+            default:
+                break; // unset -- fall through to the server-wide default (on)
+            }
+        }
+        return true;
     }
 
     bool ShouldLogToPlayer(Player *player) const
@@ -359,7 +388,7 @@ private:
     // Profession skill handlers
     void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 currentLevel, uint32 gray, uint32 green, uint32 yellow, uint32 & /*gain*/) override
     {
-        if (!IsEnabled())
+        if (!IsEnabledFor(player))
             return;
 
         const ProfessionDifficulty diff = ClassifyDifficulty(currentLevel, yellow, green, gray);
@@ -368,7 +397,7 @@ private:
 
     void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const *skill, uint32 currentLevel, uint32 & /*gain*/) override
     {
-        if (!IsEnabled())
+        if (!IsEnabledFor(player))
             return;
 
         // SkillLineAbilityEntry exposes high/low trivial ranks; AC's UpdateCraftSkill
@@ -387,7 +416,7 @@ private:
 
     bool OnPlayerUpdateFishingSkill(Player *player, int32 skill, int32 zone_skill, int32 /*chance*/, int32 /*roll*/) override
     {
-        if (!IsEnabled())
+        if (!IsEnabledFor(player))
             return true;
 
         // Fishing has no DB-defined trivial thresholds — approximate from skill
@@ -425,7 +454,8 @@ private:
 
     void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement) override
     {
-        if (!player || !achievement || !sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false))
+        if (!player || !achievement || !IsEnabledFor(player) ||
+            !sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false))
             return;
 
         // Achievement points act as the difficulty multiplier here, the same
@@ -461,18 +491,24 @@ private:
     // beyond the standard level-up path.
     void OnPlayerLearnTaxiNode(Player const *player, uint32 /*nodeId*/) override
     {
-        if (!player || !IsEnabled())
+        if (!player || !IsEnabledFor(player))
             return;
 
         GiveTaxiNodeXP(const_cast<Player *>(player));
     }
 };
 
-// Command: .xpscaling log [on|off]
-// Lets players enable or disable their own XP scaling log messages.
-// Persisted through the core's PlayerSetting API (character_settings) -- the
-// core owns load/save/delete, so no schema migration or cleanup hook is needed.
-// Gated by CustomXPScaling.LogToPlayer.AllowPlayerToggle.
+// Commands:
+//   .xpscaling on  | off       -- per-character opt-in/out of XP scaling
+//   .xpscaling log on | off    -- per-character per-event log messages
+//   .xpscaling help            -- list available commands
+//   .xpscaling about           -- short module summary
+//
+// On/off prefs are persisted through the core's PlayerSetting API
+// (character_settings) -- the core owns load/save/delete, so no schema
+// migration or cleanup hook is needed. The two toggles are gated independently
+// by CustomXPScaling.AllowPlayerToggle (scaling) and
+// CustomXPScaling.LogToPlayer.AllowPlayerToggle (log).
 using namespace Acore::ChatCommands;
 
 class CXPS_CommandScript : public CommandScript
@@ -490,7 +526,11 @@ public:
 
         static ChatCommandTable xpScalingTable =
         {
-            { "log", xpScalingLogTable },
+            { "on",    HandleScalingOnCommand,  SEC_PLAYER, Console::No },
+            { "off",   HandleScalingOffCommand, SEC_PLAYER, Console::No },
+            { "log",   xpScalingLogTable },
+            { "help",  HandleHelpCommand,       SEC_PLAYER, Console::No },
+            { "about", HandleAboutCommand,      SEC_PLAYER, Console::No },
         };
 
         static ChatCommandTable commandTable =
@@ -501,14 +541,35 @@ public:
         return commandTable;
     }
 
-    static bool HandleLogOnCommand(ChatHandler *handler)
+    static bool HandleLogOnCommand(ChatHandler *handler)      { return SetLogPref(handler, true); }
+    static bool HandleLogOffCommand(ChatHandler *handler)     { return SetLogPref(handler, false); }
+    static bool HandleScalingOnCommand(ChatHandler *handler)  { return SetScalingPref(handler, true); }
+    static bool HandleScalingOffCommand(ChatHandler *handler) { return SetScalingPref(handler, false); }
+
+    static bool HandleHelpCommand(ChatHandler *handler)
     {
-        return SetLogPref(handler, true);
+        handler->SendSysMessage("|cff4CFF00Custom XP Scaling|r commands:");
+        handler->SendSysMessage("  .xpscaling on       -- enable scaling for your character");
+        handler->SendSysMessage("  .xpscaling off      -- disable scaling for your character");
+        handler->SendSysMessage("  .xpscaling log on   -- show per-event XP log messages");
+        handler->SendSysMessage("  .xpscaling log off  -- hide per-event XP log messages");
+        handler->SendSysMessage("  .xpscaling about    -- about this module");
+        handler->SendSysMessage("  .xpscaling help     -- this help");
+        handler->SendSysMessage("Some toggles may be locked by the server admin.");
+        return true;
     }
 
-    static bool HandleLogOffCommand(ChatHandler *handler)
+    static bool HandleAboutCommand(ChatHandler *handler)
     {
-        return SetLogPref(handler, false);
+        handler->SendSysMessage("|cff4CFF00Custom XP Scaling|r");
+        handler->SendSysMessage("Reshapes XP gains across every source the core exposes:");
+        handler->SendSysMessage("kills, quests, exploration, battlegrounds, professions,");
+        handler->SendSysMessage("flight-path discovery, and achievements. Low levels can be");
+        handler->SendSysMessage("slowed, mid/high levels accelerated, and activities that");
+        handler->SendSysMessage("normally award no XP (gathering, crafting, fishing, taxi");
+        handler->SendSysMessage("nodes, achievements) grant a rolled percent of next-level XP.");
+        handler->SendSysMessage("Type .xpscaling help for the command list.");
+        return true;
     }
 
 private:
@@ -530,14 +591,41 @@ private:
         player->UpdatePlayerSetting(CXPS_SETTINGS_SOURCE, CXPS_SETTING_LOG,
             enabled ? CXPS_LOG_ON : CXPS_LOG_OFF);
 
-        handler->PSendSysMessage("XP scaling log %s.", enabled ? "|cff4CFF00enabled|r" : "|cffFF4040disabled|r");
+        handler->PSendSysMessage("XP scaling log {}.", enabled ? "|cff4CFF00enabled|r" : "|cffFF4040disabled|r");
 
-        // PlayerSetting writes are only persisted when the core's PlayerSettings
-        // system is enabled; warn so the choice isn't silently lost on logout.
+        WarnIfPlayerSettingsDisabled(handler);
+        return true;
+    }
+
+    static bool SetScalingPref(ChatHandler *handler, bool enabled)
+    {
+        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.AllowPlayerToggle", true))
+        {
+            handler->SendSysMessage("XP scaling toggle is not available on this server.");
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        Player *player = handler->GetPlayer();
+        if (!player)
+            return false;
+
+        player->UpdatePlayerSetting(CXPS_SETTINGS_SOURCE, CXPS_SETTING_ENABLE,
+            enabled ? CXPS_ENABLE_ON : CXPS_ENABLE_OFF);
+
+        handler->PSendSysMessage("Custom XP scaling {} for your character.",
+            enabled ? "|cff4CFF00enabled|r" : "|cffFF4040disabled|r");
+
+        WarnIfPlayerSettingsDisabled(handler);
+        return true;
+    }
+
+    // PlayerSetting writes are only persisted when the core's PlayerSettings
+    // system is enabled; warn so the choice isn't silently lost on logout.
+    static void WarnIfPlayerSettingsDisabled(ChatHandler *handler)
+    {
         if (!sWorld->getBoolConfig(CONFIG_PLAYER_SETTINGS_ENABLED))
             handler->SendSysMessage("Note: PlayerSettings is disabled on this server -- this choice will not persist after logout.");
-
-        return true;
     }
 };
 

@@ -169,29 +169,65 @@ Profession XP (<Source>, <Color>): <xp> | <pct>% of next level | base X% +/- Y% 
 ASCII punctuation only — multi-byte glyphs render unreliably in the WoW chat
 frame, so don't switch back to `±`/`×`.
 
-## Persistence (per-character log preference)
+## Persistence (per-character preferences)
 
-The only state the module persists is each player's `.xpscaling log on/off`
-choice, handled by `CXPS_CommandScript`. It goes through AzerothCore's
+The module persists two per-character preferences via AzerothCore's
 **`PlayerSetting` API** — `player->UpdatePlayerSetting(...)` to write,
-`player->GetPlayerSetting(...)` to read — under the source namespace
-`"mod-cxps"`, index `CXPS_SETTING_LOG` (0). The core owns the lifecycle: it
-loads `character_settings` before `OnPlayerLogin`, flushes on its normal save
-cadence, and purges the row on character delete. That's why the module has no
-DB query, no in-memory cache, no `OnPlayerLogout`, and no `OnPlayerDelete` —
-adding any of those would duplicate work the core already does.
+`player->GetPlayerSetting(...)` to read — both under the source namespace
+`"mod-cxps"`:
 
-The stored value is **tri-state**, because `GetPlayerSetting` returns `0` for
-an unset key and that must stay distinct from an explicit "off": `1` = player
-forced off, `2` = player forced on, `0`/absent = inherit the server-wide
-`CustomXPScaling.LogToPlayer` default. `ShouldLogToPlayer` resolves this.
+| Index | Constant              | Purpose                                          | Resolver           |
+|-------|-----------------------|--------------------------------------------------|--------------------|
+| `0`   | `CXPS_SETTING_LOG`    | Show/hide per-event XP log lines                 | `ShouldLogToPlayer`|
+| `1`   | `CXPS_SETTING_ENABLE` | Opt the character in/out of XP scaling entirely  | `IsEnabledFor`     |
+
+The core owns the lifecycle: it loads `character_settings` before
+`OnPlayerLogin`, flushes on its normal save cadence, and purges rows on
+character delete. That's why the module has no DB query, no in-memory cache,
+no `OnPlayerLogout`, and no `OnPlayerDelete` — adding any of those would
+duplicate work the core already does.
+
+Stored values are **tri-state** because `GetPlayerSetting` returns `0` for an
+unset key and that must stay distinct from an explicit "off". For both slots:
+`1` = player forced off, `2` = player forced on, `0`/absent = inherit the
+server-wide default (`CustomXPScaling.LogToPlayer` for log,
+`CustomXPScaling.Enable` for scaling). Each slot has its own admin gate —
+`CustomXPScaling.LogToPlayer.AllowPlayerToggle` and
+`CustomXPScaling.AllowPlayerToggle` — that disables the command entirely
+and forces the server default when off.
+
+`IsEnabledFor(player)` is the gate every XP-awarding hook uses
+(`OnPlayerGiveXP`, the three profession hooks, `OnPlayerLearnTaxiNode`,
+`OnPlayerAchievementComplete`). Don't add new XP-granting code paths without
+routing them through it — the previous `IsEnabled()` server-only helper is
+still around for non-XP code, but hooks should always use the per-player
+form so the toggle stays effective.
 
 Persistence depends on the **core's `PlayerSettings.Enable`** option being on
 (it ships off in stock AC). With it off, a toggle still works for the live
-session but is never written to the DB — `SetLogPref` detects this via
+session but is never written to the DB — both `SetLogPref` and
+`SetScalingPref` route through `WarnIfPlayerSettingsDisabled`, which checks
 `CONFIG_PLAYER_SETTINGS_ENABLED` and warns the player. Don't reintroduce a
 direct `character_settings` write to work around this; the API is the
 supported path and a raw write fights the core's load/save ordering.
+
+## Chat commands
+
+Every command is `SEC_PLAYER`, in-game only (`Console::No`).
+
+| Command                              | Behavior |
+|--------------------------------------|----------|
+| `.xpscaling on` / `.xpscaling off`   | Opt this character in/out of all XP scaling. Gated by `CustomXPScaling.AllowPlayerToggle`. |
+| `.xpscaling log on` / `.xpscaling log off` | Show/hide the per-event XP log lines. Gated by `CustomXPScaling.LogToPlayer.AllowPlayerToggle`. |
+| `.xpscaling help`                    | Lists the commands above. |
+| `.xpscaling about`                   | Short module summary. |
+
+The login announce ("…running the Custom XP Scaling module…") also points
+players at `.xpscaling help` / `.xpscaling about`.
+
+Two formatting notes for new command output: AC's `PSendSysMessage` is
+**fmtlib-based** (`{}` placeholders, not `%s`), and chat strings must stay
+ASCII — see the player-facing logging section above.
 
 ## Build / install
 
