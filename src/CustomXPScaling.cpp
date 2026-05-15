@@ -473,38 +473,40 @@ private:
 // Persisted through the core's PlayerSetting API (character_settings) -- the
 // core owns load/save/delete, so no schema migration or cleanup hook is needed.
 // Gated by CustomXPScaling.LogToPlayer.AllowPlayerToggle.
+using namespace Acore::ChatCommands;
+
 class CXPS_CommandScript : public CommandScript
 {
 public:
     CXPS_CommandScript() : CommandScript("CXPS_CommandScript") {}
 
-    std::vector<ChatCommand> GetCommands() const override
+    ChatCommandTable GetCommands() const override
     {
-        static std::vector<ChatCommand> xpScalingLogTable =
+        static ChatCommandTable xpScalingLogTable =
         {
-            { "on",  SEC_PLAYER, false, &HandleLogOnCommand,  "" },
-            { "off", SEC_PLAYER, false, &HandleLogOffCommand, "" },
+            { "on",  HandleLogOnCommand,  SEC_PLAYER, Console::No },
+            { "off", HandleLogOffCommand, SEC_PLAYER, Console::No },
         };
 
-        static std::vector<ChatCommand> xpScalingTable =
+        static ChatCommandTable xpScalingTable =
         {
-            { "log", SEC_PLAYER, false, nullptr, "", xpScalingLogTable },
+            { "log", xpScalingLogTable },
         };
 
-        static std::vector<ChatCommand> commandTable =
+        static ChatCommandTable commandTable =
         {
-            { "xpscaling", SEC_PLAYER, false, nullptr, "", xpScalingTable },
+            { "xpscaling", xpScalingTable },
         };
 
         return commandTable;
     }
 
-    static bool HandleLogOnCommand(ChatHandler *handler, const char * /*args*/)
+    static bool HandleLogOnCommand(ChatHandler *handler)
     {
         return SetLogPref(handler, true);
     }
 
-    static bool HandleLogOffCommand(ChatHandler *handler, const char * /*args*/)
+    static bool HandleLogOffCommand(ChatHandler *handler)
     {
         return SetLogPref(handler, false);
     }
