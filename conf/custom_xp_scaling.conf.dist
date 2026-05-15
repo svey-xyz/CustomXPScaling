@@ -12,7 +12,28 @@
 
 CustomXPScaling.Enable = 1
 CustomXPScaling.Announce = 1
+
+#    CustomXPScaling.LogToPlayer
+#        Description: Server-wide default for per-event XP log messages in player chat.
+#                     Players can override this with .xpscaling log on/off if
+#                     AllowPlayerToggle is enabled. The per-character override is
+#                     stored through AzerothCore's PlayerSetting API, so the core's
+#                     PlayerSettings.Enable option must be 1 for that choice to
+#                     persist across sessions (the server-wide default below always
+#                     applies regardless).
+#        Default:     1 - Enabled
+#                     0 - Disabled
+
 CustomXPScaling.LogToPlayer = 1
+
+#    CustomXPScaling.LogToPlayer.AllowPlayerToggle
+#        Description: Allow players to toggle their own XP scaling log on/off
+#                     using .xpscaling log [on|off]. When disabled, the server
+#                     default above is enforced and the command is unavailable.
+#        Default:     1 - Players can toggle
+#                     0 - Server default is enforced
+
+CustomXPScaling.LogToPlayer.AllowPlayerToggle = 1
 
 CustomXPScaling.LevelXP.Enable = 1
 CustomXPScaling.LevelXP.Scaling.1-9 = 0.4
@@ -68,8 +89,49 @@ CustomXPScaling.ProfessionsXP.Difficulty.Green  = 1.0
 CustomXPScaling.ProfessionsXP.Difficulty.Yellow = 1.2
 CustomXPScaling.ProfessionsXP.Difficulty.Orange = 2.0
 
+################################################################################################################
+# Achievement XP
+#
+# Awards XP whenever a player completes an achievement. Uses the same
+# "base:randomizer" roll as ProfessionsXP and TaxiNodeXP, with the achievement's
+# point value acting as a difficulty multiplier on top of the rolled base
+# percent (the achievement analogue of the profession Difficulty.* tiers) — so
+# higher-point achievements pay proportionally more.
+#
+#   LevelPercent = "<base>:<randomizer>"
+#     Both are absolute percentages of next-level XP.
+#     Final percent: (base + frand(-randomizer, +randomizer)) * PointsMultiplier
+#
+#   PointsMultiplier = points / PointsPerUnit, clamped to [MinMultiplier, MaxMultiplier].
+#     With PointsPerUnit = 10, a 10-point achievement rolls at 1.0x and a
+#     50-point achievement at 5.0x. Set PointsPerUnit <= 0 to disable point
+#     weighting entirely (every achievement uses 1.0x, still clamped to the band).
+#
+#   Example: LevelPercent "1.0:0.25", a 25-point achievement (mult 2.5)
+#       → (0.75% – 1.25%) * 2.5 = 1.875% – 3.125% of next-level XP.
+################################################################################################################
+
 CustomXPScaling.AchievementXP.Enable = 1
-CustomXPScaling.AchievementXP.ScaleLevel = 1
-CustomXPScaling.AchievementXP.Scaling = 5.0
+CustomXPScaling.AchievementXP.LevelPercent = "1.0:0.25"
+CustomXPScaling.AchievementXP.PointsPerUnit = 10.0
+CustomXPScaling.AchievementXP.MinMultiplier = 0.5
+CustomXPScaling.AchievementXP.MaxMultiplier = 5.0
+
+################################################################################################################
+# Taxi Node XP
+#
+# Awards XP the first time a player discovers a new flight path node.
+# Amount is a random percentage of next-level XP, using the same "base:randomizer"
+# format as ProfessionsXP. No difficulty tiers — every node discovery pays the
+# same rolled amount regardless of zone or player level.
+#
+#   LevelPercent = "<base>:<randomizer>"
+#     Both are absolute percentages of next-level XP.
+#     Final percent: base + frand(-randomizer, +randomizer)
+#     Example: "2.0:0.5" rolls between 1.5% and 2.5% of next-level XP per node.
+################################################################################################################
+
+CustomXPScaling.TaxiNodeXP.Enable = 1
+CustomXPScaling.TaxiNodeXP.LevelPercent = "2.0:0.5"
 
 ##################################################################################################################

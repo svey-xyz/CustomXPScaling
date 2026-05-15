@@ -10,6 +10,6 @@ void AddCustomXPScalingScripts();
 // additionally replace all '-' in the module folder name with '_' here
 void Addmod_custom_xp_scalingScripts()
 {
-	AddCustomXPScalingScripts();
+    AddCustomXPScalingScripts();
 }
 
