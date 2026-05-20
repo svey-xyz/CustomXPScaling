@@ -277,7 +277,7 @@ CustomXPScaling.TaxiNodeXP.LevelPercent = "2.0:0.5"
 #        Default:     0 - Disabled (baseline, no cast-speed changes)
 #                     1 - Enabled
 
-CustomXPScaling.CastSpeed.Enable = 0
+CustomXPScaling.CastSpeed.Enable = 1
 
 #    CustomXPScaling.CastSpeed.LogToConsole
 #        Description: Log every modified spell to the worldserver console at
@@ -303,22 +303,22 @@ CustomXPScaling.CastSpeed.MinCastTimeMs = 250
 #            1.0  -- unchanged
 #            0.5  -- twice as fast (clamped by MinCastTimeMs)
 
-CustomXPScaling.CastSpeed.Craft.Multiplier      = 1.0
-CustomXPScaling.CastSpeed.Gather.Multiplier     = 1.0
-CustomXPScaling.CastSpeed.Fish.Multiplier       = 1.0
-CustomXPScaling.CastSpeed.Disenchant.Multiplier = 1.0
-CustomXPScaling.CastSpeed.Smelt.Multiplier      = 1.0
-CustomXPScaling.CastSpeed.Lockpick.Multiplier   = 1.0
+CustomXPScaling.CastSpeed.Craft.Multiplier      = 2.0
+CustomXPScaling.CastSpeed.Gather.Multiplier     = 1.8
+CustomXPScaling.CastSpeed.Fish.Multiplier       = 2.0
+CustomXPScaling.CastSpeed.Disenchant.Multiplier = 1.5
+CustomXPScaling.CastSpeed.Smelt.Multiplier      = 1.5
+CustomXPScaling.CastSpeed.Lockpick.Multiplier   = 1.2
 
 #    Per-rank multipliers (1.0 = unchanged)
 #        Layered on top of the source multiplier. Default 1.0 across the
 #        board, so a fresh install only feels the source values.
 
-CustomXPScaling.CastSpeed.Rank.Apprentice   = 1.0
-CustomXPScaling.CastSpeed.Rank.Journeyman   = 1.0
-CustomXPScaling.CastSpeed.Rank.Expert       = 1.0
+CustomXPScaling.CastSpeed.Rank.Apprentice   = 1.25
+CustomXPScaling.CastSpeed.Rank.Journeyman   = 1.2
+CustomXPScaling.CastSpeed.Rank.Expert       = 1.1
 CustomXPScaling.CastSpeed.Rank.Artisan      = 1.0
-CustomXPScaling.CastSpeed.Rank.Master       = 1.0
-CustomXPScaling.CastSpeed.Rank.GrandMaster  = 1.0
+CustomXPScaling.CastSpeed.Rank.Master       = 0.9
+CustomXPScaling.CastSpeed.Rank.GrandMaster  = 0.8
 
 ##################################################################################################################
