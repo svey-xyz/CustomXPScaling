@@ -2,6 +2,8 @@
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-AGPL3
  */
 
+#include "CXPS_CastSpeed.h"
+#include "CXPS_Config.h"
 #include "CXPS_LevelPercentReward.h"
 #include "Chat.h"
 #include "Config.h"
@@ -9,6 +11,7 @@
 #include "Player.h"
 #include "Random.h"
 #include "ScriptMgr.h"
+#include "SharedDefines.h"
 #include "World.h"
 #include <algorithm>
 
@@ -31,12 +34,31 @@ namespace
 
     constexpr uint32 CXPS_ENABLE_OFF = 1; // player opted out of XP scaling
     constexpr uint32 CXPS_ENABLE_ON = 2;  // player opted in to XP scaling
+
+    // Disenchant lives under SKILL_ENCHANTING in SkillLineAbility -- the only
+    // way to distinguish it from a real Enchant cast is the spell id. 13262
+    // is the canonical Disenchant spell across all 3.3.5 builds.
+    constexpr uint32 CXPS_SPELL_DISENCHANT = 13262;
 }
 
 class CustomXPScaling : public PlayerScript
 {
 public:
-    CustomXPScaling() : PlayerScript("CustomXPScaling") {}
+    // Modern hook-list constructor -- the core skips this script for any hook
+    // not listed here. Names verified against
+    // src/server/game/Scripting/ScriptDefines/PlayerScript.h: the enum drops
+    // the Player infix from the method name (so OnPlayerLogin -> ON_LOGIN)
+    // but uses ON_GIVE_EXP for OnPlayerGiveXP and ON_ACHI_COMPLETE for
+    // OnPlayerAchievementComplete. Two abbreviations to watch out for.
+    CustomXPScaling() : PlayerScript("CustomXPScaling", {
+        PLAYERHOOK_ON_LOGIN,
+        PLAYERHOOK_ON_GIVE_EXP,
+        PLAYERHOOK_ON_UPDATE_GATHERING_SKILL,
+        PLAYERHOOK_ON_UPDATE_CRAFTING_SKILL,
+        PLAYERHOOK_ON_UPDATE_FISHING_SKILL,
+        PLAYERHOOK_ON_ACHI_COMPLETE,
+        PLAYERHOOK_ON_LEARN_TAXI_NODE,
+    }) {}
 
     enum ProfessionDifficulty
     {
@@ -48,7 +70,7 @@ public:
 
     void OnPlayerLogin(Player *player) override
     {
-        if (sConfigMgr->GetOption<bool>("CustomXPScaling.Announce", true))
+        if (cxpsConfig.GetBool(CXPSConfig::ANNOUNCE))
         {
             ChatHandler(player->GetSession()).SendSysMessage(
                 "This server is running the |cff4CFF00Custom XP Scaling|r module. "
@@ -103,7 +125,7 @@ public:
 private:
     bool IsEnabled() const
     {
-        return sConfigMgr->GetOption<bool>("CustomXPScaling.Enable", true);
+        return cxpsConfig.GetBool(CXPSConfig::ENABLE);
     }
 
     // Server enable + per-character opt-in/out. Mirrors ShouldLogToPlayer:
@@ -116,7 +138,7 @@ private:
         if (!IsEnabled())
             return false;
 
-        if (player && sConfigMgr->GetOption<bool>("CustomXPScaling.AllowPlayerToggle", true))
+        if (player && cxpsConfig.GetBool(CXPSConfig::ALLOW_PLAYER_TOGGLE))
         {
             switch (player->GetPlayerSetting(CXPS_SETTINGS_SOURCE, CXPS_SETTING_ENABLE).value)
             {
@@ -134,7 +156,7 @@ private:
     bool ShouldLogToPlayer(Player *player) const
     {
         // A per-character override only applies if the server allows toggling.
-        if (player && sConfigMgr->GetOption<bool>("CustomXPScaling.LogToPlayer.AllowPlayerToggle", true))
+        if (player && cxpsConfig.GetBool(CXPSConfig::LOG_TO_PLAYER_ALLOW_PLAYER_TOGGLE))
         {
             switch (player->GetPlayerSetting(CXPS_SETTINGS_SOURCE, CXPS_SETTING_LOG).value)
             {
@@ -146,33 +168,33 @@ private:
                 break; // unset -- fall through to the server-wide default
             }
         }
-        return sConfigMgr->GetOption<bool>("CustomXPScaling.LogToPlayer", false);
+        return cxpsConfig.GetBool(CXPSConfig::LOG_TO_PLAYER);
     }
 
     float GetLevelScalingFactor(const Player *player, std::stringstream *logStream) const
     {
-        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.LevelXP.Enable", true))
+        if (!cxpsConfig.GetBool(CXPSConfig::LEVEL_XP_ENABLE))
             return 1.0f;
 
         const uint8 level = player->GetLevel();
         float scaling = 1.0f;
 
         if (level <= 9)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.1-9", 0.2f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_1_9);
         else if (level <= 19)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.10-19", 0.3f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_10_19);
         else if (level <= 29)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.20-29", 0.8f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_20_29);
         else if (level <= 39)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.30-39", 1.0f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_30_39);
         else if (level <= 49)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.40-49", 1.2f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_40_49);
         else if (level <= 59)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.50-59", 1.3f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_50_59);
         else if (level <= 69)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.60-69", 1.3f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_60_69);
         else if (level <= 79)
-            scaling = sConfigMgr->GetOption<float>("CustomXPScaling.LevelXP.Scaling.70-79", 1.3f);
+            scaling = cxpsConfig.GetFloat(CXPSConfig::LEVEL_XP_SCALING_70_79);
 
         if (logStream)
         {
@@ -187,9 +209,9 @@ private:
         float scaling = 1.0f;
 
         // Apply kill scaling
-        if (sConfigMgr->GetOption<bool>("CustomXPScaling.KillXP.Enable", false))
+        if (cxpsConfig.GetBool(CXPSConfig::KILL_XP_ENABLE))
         {
-            const float killScaling = sConfigMgr->GetOption<float>("CustomXPScaling.KillXP.Scaling", 1.0f);
+            const float killScaling = cxpsConfig.GetFloat(CXPSConfig::KILL_XP_SCALING);
             scaling *= killScaling;
 
             if (logStream)
@@ -199,16 +221,16 @@ private:
         }
 
         // Apply rare scaling
-        if (victim && victim->IsCreature() && sConfigMgr->GetOption<bool>("CustomXPScaling.RareXP.Enable", false))
+        if (victim && victim->IsCreature() && cxpsConfig.GetBool(CXPSConfig::RARE_XP_ENABLE))
         {
             const Creature *creature = victim->ToCreature();
             const CreatureTemplate *creatureProto = creature->GetCreatureTemplate();
 
             if (creatureProto && creatureProto->rank > 0)
             {
-                float rareScaling = sConfigMgr->GetOption<float>("CustomXPScaling.RareXP.Scaling", 1.0f);
+                float rareScaling = cxpsConfig.GetFloat(CXPSConfig::RARE_XP_SCALING);
 
-                if (sConfigMgr->GetOption<bool>("CustomXPScaling.RareXP.RankScaling", true))
+                if (cxpsConfig.GetBool(CXPSConfig::RARE_XP_RANK_SCALING))
                 {
                     rareScaling *= creatureProto->rank;
                 }
@@ -227,10 +249,10 @@ private:
 
     float GetExploreScalingFactor(std::stringstream *logStream) const
     {
-        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.ExploreXP.Enable", true))
+        if (!cxpsConfig.GetBool(CXPSConfig::EXPLORE_XP_ENABLE))
             return 1.0f;
 
-        const float scaling = sConfigMgr->GetOption<float>("CustomXPScaling.ExploreXP.Scaling", 1.0f);
+        const float scaling = cxpsConfig.GetFloat(CXPSConfig::EXPLORE_XP_SCALING);
 
         if (logStream)
         {
@@ -242,10 +264,10 @@ private:
 
     float GetQuestScalingFactor(std::stringstream *logStream) const
     {
-        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.QuestXP.Enable", true))
+        if (!cxpsConfig.GetBool(CXPSConfig::QUEST_XP_ENABLE))
             return 1.0f;
 
-        const float scaling = sConfigMgr->GetOption<float>("CustomXPScaling.QuestXP.Scaling", 1.0f);
+        const float scaling = cxpsConfig.GetFloat(CXPSConfig::QUEST_XP_SCALING);
 
         if (logStream)
         {
@@ -291,6 +313,8 @@ private:
     // "<base>:<randomizer>" parsing and the percent-of-next-level roll live in
     // CXPS_LevelPercentReward.{h,cpp} -- shared by professions, taxi nodes, and
     // achievements so the rolled-percent semantics stay identical across them.
+    // The parsing only runs at config-load time now; runtime reads come from
+    // the parallel array on cxpsConfig (see GetLevelPercent).
 
     float GetDifficultyMultiplier(ProfessionDifficulty diff, const char *&label) const
     {
@@ -298,16 +322,16 @@ private:
         {
         case PROF_DIFF_GRAY:
             label = "Gray";
-            return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Gray", 0.0f);
+            return cxpsConfig.GetFloat(CXPSConfig::PROFESSIONS_DIFFICULTY_GRAY);
         case PROF_DIFF_GREEN:
             label = "Green";
-            return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Green", 0.5f);
+            return cxpsConfig.GetFloat(CXPSConfig::PROFESSIONS_DIFFICULTY_GREEN);
         case PROF_DIFF_YELLOW:
             label = "Yellow";
-            return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Yellow", 1.0f);
+            return cxpsConfig.GetFloat(CXPSConfig::PROFESSIONS_DIFFICULTY_YELLOW);
         case PROF_DIFF_ORANGE:
             label = "Orange";
-            return sConfigMgr->GetOption<float>("CustomXPScaling.ProfessionsXP.Difficulty.Orange", 1.5f);
+            return cxpsConfig.GetFloat(CXPSConfig::PROFESSIONS_DIFFICULTY_ORANGE);
         }
         label = "Unknown";
         return 1.0f;
@@ -327,21 +351,56 @@ private:
         return PROF_DIFF_ORANGE;
     }
 
-    void GiveProfessionXP(Player *player, ProfessionDifficulty diff, const char *source) const
+    // Bundle of inputs the profession path needs to roll an XP reward. Packed
+    // here so the three hooks all call GiveProfessionXP the same way; each
+    // hook fills in the source label, the difficulty, the skill id (for the
+    // per-skill multiplier lookup), and the rank value used to pick a
+    // bracket (current skill for gather/fish, recipe MinSkillLineRank for crafts).
+    struct ProfessionContext
     {
-        if (!player || !sConfigMgr->GetOption<bool>("CustomXPScaling.ProfessionsXP.Enable", true))
+        CXPSProfessionSource source;
+        ProfessionDifficulty difficulty;
+        uint32 skillId;          // SKILL_* -- routes the per-skill multiplier
+        uint32 rankSkill;        // chooses the Apprentice...GrandMaster bracket
+        bool   isDisenchant;     // overrides skillId-based lookup -> Disenchanting
+        bool   isSmelt;          // overrides skillId-based lookup -> Smelting
+    };
+
+    void GiveProfessionXP(Player *player, ProfessionContext const& ctx) const
+    {
+        if (!player || !cxpsConfig.GetBool(CXPSConfig::PROFESSIONS_ENABLE))
             return;
 
         const char *diffLabel = "Unknown";
-        const float diffMult = GetDifficultyMultiplier(diff, diffLabel);
+        const float diffMult = GetDifficultyMultiplier(ctx.difficulty, diffLabel);
 
         // A non-positive multiplier means "no XP at this difficulty" (gray by default).
         if (diffMult <= 0.0f)
             return;
 
+        // Per-skill and per-rank multipliers stack on top of difficulty. Both
+        // default to 1.0 so a fresh install behaves identically to the pre-axes
+        // version.
+        const float skillMult = cxpsConfig.GetSkillMultiplier(
+            ctx.skillId, ctx.isDisenchant, ctx.isSmelt);
+        const float rankMult  = cxpsConfig.GetRankMultiplier(ctx.rankSkill);
+
+        // Combined multiplier passed to the roll. Order of multiplication is
+        // commutative; the breakdown is preserved in the chat log below.
+        const float totalMult = diffMult * skillMult * rankMult;
+        if (totalMult <= 0.0f)
+            return;
+
+        // Per-source LevelPercent override (Gather / Craft / Fish / Disenchant /
+        // Smelt / Lockpick). The cache pre-parses each override at config load
+        // and substitutes the global ProfessionsXP.LevelPercent when the
+        // per-source key is absent or malformed -- so this lookup never
+        // re-parses strings or touches sConfigMgr.
         const CXPS::LevelPercent levelPercent =
-            CXPS::ParseLevelPercent("CustomXPScaling.ProfessionsXP.LevelPercent", 1.0f, 0.25f);
-        const float effectivePercent = CXPS::RollEffectivePercent(levelPercent, diffMult);
+            cxpsConfig.GetLevelPercent(
+                CXPSConfigData::SourceLevelPercentKey(ctx.source));
+
+        const float effectivePercent = CXPS::RollEffectivePercent(levelPercent, totalMult);
         const uint32 xpReward = CXPS::LevelPercentToXP(player, effectivePercent);
 
         if (xpReward == 0)
@@ -350,10 +409,13 @@ private:
         if (ShouldLogToPlayer(player))
         {
             std::stringstream logMsg;
-            logMsg << "Profession XP (" << source << ", " << diffLabel << "): " << xpReward
+            logMsg << "Profession XP (" << CXPSConfigData::SourceLabel(ctx.source)
+                         << ", " << diffLabel << "): " << xpReward
                          << " | " << effectivePercent << "% of next level"
                          << " | base " << levelPercent.base << "% +/- " << levelPercent.randomizer
-                         << "% x " << diffMult;
+                         << "% x diff " << diffMult
+                         << " x skill " << skillMult
+                         << " x rank " << rankMult;
             ChatHandler(player->GetSession()).SendSysMessage(logMsg.str());
         }
 
@@ -362,13 +424,13 @@ private:
 
     void GiveTaxiNodeXP(Player *player) const
     {
-        if (!player || !sConfigMgr->GetOption<bool>("CustomXPScaling.TaxiNodeXP.Enable", true))
+        if (!player || !cxpsConfig.GetBool(CXPSConfig::TAXI_NODE_XP_ENABLE))
             return;
 
         // No difficulty tiers for node discovery -- every node pays the same
         // rolled percent, so the multiplier is a flat 1.0.
         const CXPS::LevelPercent levelPercent =
-            CXPS::ParseLevelPercent("CustomXPScaling.TaxiNodeXP.LevelPercent", 2.0f, 0.5f);
+            cxpsConfig.GetLevelPercent(CXPSConfig::TAXI_NODE_XP_LEVEL_PERCENT);
         const float effectivePercent = CXPS::RollEffectivePercent(levelPercent, 1.0f);
         const uint32 xpReward = CXPS::LevelPercentToXP(player, effectivePercent);
 
@@ -388,13 +450,26 @@ private:
     }
 
     // Profession skill handlers
-    void OnPlayerUpdateGatheringSkill(Player *player, uint32 /*skillId*/, uint32 currentLevel, uint32 gray, uint32 green, uint32 yellow, uint32 & /*gain*/) override
+    void OnPlayerUpdateGatheringSkill(Player *player, uint32 skillId, uint32 currentLevel, uint32 gray, uint32 green, uint32 yellow, uint32 & /*gain*/) override
     {
         if (!IsEnabledFor(player))
             return;
 
-        const ProfessionDifficulty diff = ClassifyDifficulty(currentLevel, yellow, green, gray);
-        GiveProfessionXP(player, diff, "Gather");
+        // Lockpicking is reported through the gathering hook; route it to its
+        // own source so admins can tune (or zero) rogue lockpicking XP
+        // independently of mining / herbalism / skinning.
+        const CXPSProfessionSource src =
+            (skillId == SKILL_LOCKPICKING) ? CXPS_PROF_SRC_LOCKPICK : CXPS_PROF_SRC_GATHER;
+
+        ProfessionContext ctx{};
+        ctx.source       = src;
+        ctx.difficulty   = ClassifyDifficulty(currentLevel, yellow, green, gray);
+        ctx.skillId      = skillId;
+        ctx.rankSkill    = currentLevel;
+        ctx.isDisenchant = false;
+        ctx.isSmelt      = false;
+
+        GiveProfessionXP(player, ctx);
     }
 
     void OnPlayerUpdateCraftingSkill(Player *player, SkillLineAbilityEntry const *skill, uint32 currentLevel, uint32 & /*gain*/) override
@@ -405,15 +480,46 @@ private:
         // SkillLineAbilityEntry exposes high/low trivial ranks; AC's UpdateCraftSkill
         // uses high = gray, low = yellow, midpoint = green for its skill-up odds.
         ProfessionDifficulty diff = PROF_DIFF_YELLOW;
+        uint32 skillId   = 0;
+        uint32 rankSkill = currentLevel;
+        bool   isDisench = false;
+        bool   isSmelt   = false;
+
         if (skill)
         {
+            skillId = skill->SkillLine;
+
             const uint32 gray = skill->TrivialSkillLineRankHigh;
             const uint32 yellow = skill->TrivialSkillLineRankLow;
             const uint32 green = (gray + yellow) / 2;
             diff = ClassifyDifficulty(currentLevel, yellow, green, gray);
+
+            // The recipe's required skill is the right bracket signal for
+            // crafts (a Grandmaster recipe should pay grand-master XP even if
+            // the player is over-skilled). Fall back to currentLevel if absent.
+            if (skill->MinSkillLineRank > 0)
+                rankSkill = skill->MinSkillLineRank;
+
+            // Disenchant rides on SKILL_ENCHANTING; the spell id is the only
+            // reliable distinction. Smelting rides on SKILL_MINING but in the
+            // crafting hook (mining-the-gather hits the gathering hook).
+            if (skill->Spell == CXPS_SPELL_DISENCHANT)
+                isDisench = true;
+            else if (skill->SkillLine == SKILL_MINING)
+                isSmelt = true;
         }
 
-        GiveProfessionXP(player, diff, "Craft");
+        ProfessionContext ctx{};
+        ctx.source       = isDisench ? CXPS_PROF_SRC_DISENCHANT
+                         : isSmelt   ? CXPS_PROF_SRC_SMELT
+                         :             CXPS_PROF_SRC_CRAFT;
+        ctx.difficulty   = diff;
+        ctx.skillId      = skillId;
+        ctx.rankSkill    = rankSkill;
+        ctx.isDisenchant = isDisench;
+        ctx.isSmelt      = isSmelt;
+
+        GiveProfessionXP(player, ctx);
     }
 
     bool OnPlayerUpdateFishingSkill(Player *player, int32 skill, int32 zone_skill, int32 /*chance*/, int32 /*roll*/) override
@@ -421,7 +527,7 @@ private:
         if (!IsEnabledFor(player))
             return true;
 
-        // Fishing has no DB-defined trivial thresholds — approximate from skill
+        // Fishing has no DB-defined trivial thresholds -- approximate from skill
         // vs. zone requirement so high-level fishing in low-level zones decays to gray.
         const int32 delta = skill - zone_skill;
         ProfessionDifficulty diff;
@@ -434,7 +540,15 @@ private:
         else
             diff = PROF_DIFF_ORANGE;
 
-        GiveProfessionXP(player, diff, "Fish");
+        ProfessionContext ctx{};
+        ctx.source       = CXPS_PROF_SRC_FISH;
+        ctx.difficulty   = diff;
+        ctx.skillId      = SKILL_FISHING;
+        ctx.rankSkill    = skill > 0 ? static_cast<uint32>(skill) : 0;
+        ctx.isDisenchant = false;
+        ctx.isSmelt      = false;
+
+        GiveProfessionXP(player, ctx);
         return true; // Continue with default handling
     }
 
@@ -446,9 +560,9 @@ private:
     // point weighting entirely (every achievement uses 1.0x, still clamped).
     float GetAchievementPointsMultiplier(uint32 points) const
     {
-        const float perUnit = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.PointsPerUnit", 10.0f);
-        const float minMult = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.MinMultiplier", 0.5f);
-        const float maxMult = sConfigMgr->GetOption<float>("CustomXPScaling.AchievementXP.MaxMultiplier", 5.0f);
+        const float perUnit = cxpsConfig.GetFloat(CXPSConfig::ACHIEVEMENT_XP_POINTS_PER_UNIT);
+        const float minMult = cxpsConfig.GetFloat(CXPSConfig::ACHIEVEMENT_XP_MIN_MULTIPLIER);
+        const float maxMult = cxpsConfig.GetFloat(CXPSConfig::ACHIEVEMENT_XP_MAX_MULTIPLIER);
 
         const float raw = perUnit > 0.0f ? (static_cast<float>(points) / perUnit) : 1.0f;
         return std::max(minMult, std::min(maxMult, raw));
@@ -457,7 +571,7 @@ private:
     void OnPlayerAchievementComplete(Player *player, AchievementEntry const *achievement) override
     {
         if (!player || !achievement || !IsEnabledFor(player) ||
-            !sConfigMgr->GetOption<bool>("CustomXPScaling.AchievementXP.Enable", false))
+            !cxpsConfig.GetBool(CXPSConfig::ACHIEVEMENT_XP_ENABLE))
             return;
 
         // Achievement points act as the difficulty multiplier here, the same
@@ -467,7 +581,7 @@ private:
             return;
 
         const CXPS::LevelPercent levelPercent =
-            CXPS::ParseLevelPercent("CustomXPScaling.AchievementXP.LevelPercent", 1.0f, 0.25f);
+            cxpsConfig.GetLevelPercent(CXPSConfig::ACHIEVEMENT_XP_LEVEL_PERCENT);
         const float effectivePercent = CXPS::RollEffectivePercent(levelPercent, pointsMult);
         const uint32 xpReward = CXPS::LevelPercentToXP(player, effectivePercent);
 
@@ -569,18 +683,18 @@ public:
     {
         handler->SendSysMessage("|cff4CFF00Custom XP Scaling|r");
         handler->SendSysMessage("Reshapes XP gains across the server; scaling factors are configured by the admin");
-				handler->SendSysMessage(" and can vary by level and activity. Check your server's about or wiki for details.");
-				handler->SendSysMessage("Preferences are per-character and optionally player-toggleable,");
-				handler->SendSysMessage("with live XP gain breakdowns in chat if logging is enabled.");
-				handler->SendSysMessage("Prefer standard XP gains? Type |cff4CFF00.xpscaling off|r to disable for your character.");
-				handler->SendSysMessage("Type .xpscaling help for the command list.");
+        handler->SendSysMessage(" and can vary by level and activity. Check your server's about or wiki for details.");
+        handler->SendSysMessage("Preferences are per-character and optionally player-toggleable,");
+        handler->SendSysMessage("with live XP gain breakdowns in chat if logging is enabled.");
+        handler->SendSysMessage("Prefer standard XP gains? Type |cff4CFF00.xpscaling off|r to disable for your character.");
+        handler->SendSysMessage("Type .xpscaling help for the command list.");
         return true;
-		}
+    }
 
 private:
     static bool SetLogPref(ChatHandler *handler, bool enabled)
     {
-        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.LogToPlayer.AllowPlayerToggle", true))
+        if (!cxpsConfig.GetBool(CXPSConfig::LOG_TO_PLAYER_ALLOW_PLAYER_TOGGLE))
         {
             handler->SendSysMessage("XP scaling log toggle is not available on this server.");
             handler->SetSentErrorMessage(true);
@@ -604,7 +718,7 @@ private:
 
     static bool SetScalingPref(ChatHandler *handler, bool enabled)
     {
-        if (!sConfigMgr->GetOption<bool>("CustomXPScaling.AllowPlayerToggle", true))
+        if (!cxpsConfig.GetBool(CXPSConfig::ALLOW_PLAYER_TOGGLE))
         {
             handler->SendSysMessage("XP scaling toggle is not available on this server.");
             handler->SetSentErrorMessage(true);
@@ -634,8 +748,45 @@ private:
     }
 };
 
+// WorldScript whose only job is to populate cxpsConfig at world boot and on
+// every .reload config. Listed on the hook-list constructor so the core only
+// iterates this script for WORLDHOOK_ON_BEFORE_CONFIG_LOAD.
+class CXPS_LoadConfigScript : public WorldScript
+{
+public:
+    CXPS_LoadConfigScript() : WorldScript("CXPS_LoadConfigScript", {
+        WORLDHOOK_ON_BEFORE_CONFIG_LOAD,
+    }) {}
+
+    void OnBeforeConfigLoad(bool reload) override
+    {
+        cxpsConfig.Initialize(reload);
+    }
+};
+
+// Separate WorldScript for the cast-speed pass: it must run *after* DBCs and
+// configs are loaded (so SpellMgr / cxpsConfig are populated), which is what
+// WORLDHOOK_ON_STARTUP gives us. Splitting it out from CXPS_LoadConfigScript
+// keeps the hook lists tight -- the config-load script doesn't pay the cost
+// of being invoked on startup, and the cast-speed script doesn't run on every
+// .reload config (cast-time mutation is intentionally restart-only).
+class CXPS_CastSpeedScript : public WorldScript
+{
+public:
+    CXPS_CastSpeedScript() : WorldScript("CXPS_CastSpeedScript", {
+        WORLDHOOK_ON_STARTUP,
+    }) {}
+
+    void OnStartup() override
+    {
+        CXPS::CastSpeed::Apply();
+    }
+};
+
 void AddCustomXPScalingScripts()
 {
     new CustomXPScaling();
     new CXPS_CommandScript();
+    new CXPS_LoadConfigScript();
+    new CXPS_CastSpeedScript();
 }

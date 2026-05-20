@@ -73,23 +73,30 @@ CustomXPScaling.ExploreXP.Scaling = 5.0
 ################################################################################################################
 # Profession XP
 #
-# Awards XP whenever a player gathers, crafts, or fishes. The amount is a
-# percentage of the XP required for the player's *current level*, scaled by the
-# difficulty of the action (gray / green / yellow / orange — same color logic
-# AzerothCore uses to roll skill-ups, see PlayerUpdates.cpp).
+# Awards XP whenever a player gathers, crafts, fishes, disenchants, smelts, or
+# picks a lock. The amount is a percentage of the XP required for the player's
+# *current level*, rolled per event and weighted by three independent axes:
+#
+#   Final percent = (base ± randomizer) * Difficulty * SkillMultiplier * RankMultiplier
+#
+#   1. Difficulty -- gray / green / yellow / orange, same color thresholds AC
+#      uses to roll skill-ups. Set Difficulty.Gray = 0 to suppress trivial XP.
+#   2. SkillMultiplier -- per-skill knob (Alchemy, Cooking, ...). Default 1.0;
+#      lets admins boost or zero out one skill without touching the rest.
+#   3. RankMultiplier -- Apprentice...GrandMaster bracket, derived from the
+#      recipe's MinSkillLineRank (crafts) or current skill (gather/fish).
+#      Default 1.0; lets admins reward late-game crafting separately from
+#      raw difficulty color.
+#
+# Sources used for the per-source LevelPercent override and for the chat-log
+# label: Gather, Craft, Fish, Disenchant, Smelt, Lockpick. Disenchant is
+# detected by spell id; Smelt is SKILL_MINING through the crafting hook;
+# Lockpick is SKILL_LOCKPICKING through the gathering hook.
 #
 #   LevelPercent = "<base>:<randomizer>"
 #     Both values are absolute percentages of next-level XP.
-#     Each profession tick rolls a final percent of:
-#         (base + frand(-randomizer, +randomizer)) * DifficultyMultiplier
 #     Example: "1.0:0.25" with a Yellow task at multiplier 1.0
 #         → 0.75% – 1.25% of next-level XP.
-#
-#   Difficulty.* multipliers stack on top of the rolled base percent.
-#     Gray   = 0.25  → low XP for trivial tasks (set = 0 to disable)
-#     Green  = 0.8  → 80% rate for easy tasks
-#     Yellow = 1.0  → baseline rate
-#     Orange = 1.2  → 20% bonus for difficult tasks
 #
 # Fishing has no DB-defined trivial thresholds; difficulty is approximated from
 # (player_skill - zone_skill): >=100 gray, >=50 green, >=0 yellow, else orange.
@@ -101,6 +108,71 @@ CustomXPScaling.ProfessionsXP.Difficulty.Gray   = 0.25
 CustomXPScaling.ProfessionsXP.Difficulty.Green  = 0.8
 CustomXPScaling.ProfessionsXP.Difficulty.Yellow = 1.0
 CustomXPScaling.ProfessionsXP.Difficulty.Orange = 1.2
+
+#    Per-source LevelPercent overrides
+#        Each profession source can override ProfessionsXP.LevelPercent
+#        independently. A missing, empty, or malformed value falls back to
+#        ProfessionsXP.LevelPercent above, so admins can tune one source
+#        without restating the others. Difficulty.*, Skill.*, and Rank.*
+#        multipliers are NOT per-source -- they still apply globally on top
+#        of whichever LevelPercent the source resolves to.
+#
+#        Format: "<base>:<randomizer>", same semantics as ProfessionsXP.LevelPercent.
+#
+#        Examples (uncomment to override; leave commented to inherit):
+# CustomXPScaling.ProfessionsXP.Gather.LevelPercent     = "2.25:1.25"
+# CustomXPScaling.ProfessionsXP.Craft.LevelPercent      = "2.25:1.25"
+# CustomXPScaling.ProfessionsXP.Fish.LevelPercent       = "1.5:0.75"
+# CustomXPScaling.ProfessionsXP.Disenchant.LevelPercent = "1.5:0.5"
+# CustomXPScaling.ProfessionsXP.Smelt.LevelPercent      = "1.0:0.25"
+# CustomXPScaling.ProfessionsXP.Lockpick.LevelPercent   = "1.5:0.5"
+
+#    Per-skill multipliers (default 1.0 = no per-skill change)
+#        Layered on top of the Difficulty.* and Rank.* multipliers. Useful for
+#        boosting Cooking specifically, zeroing out Lockpicking on a PvE
+#        realm, or nudging a slow-leveling secondary profession upward.
+#
+#        Disenchanting and Smelting have dedicated entries even though they
+#        share an underlying SKILL_* id with Enchanting and Mining
+#        respectively -- the module routes them to the correct bucket.
+
+CustomXPScaling.ProfessionsXP.Skill.Alchemy.Multiplier        = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Blacksmithing.Multiplier  = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Cooking.Multiplier        = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Disenchanting.Multiplier  = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Enchanting.Multiplier     = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Engineering.Multiplier    = 1.0
+CustomXPScaling.ProfessionsXP.Skill.FirstAid.Multiplier       = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Fishing.Multiplier        = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Herbalism.Multiplier      = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Inscription.Multiplier    = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Jewelcrafting.Multiplier  = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Leatherworking.Multiplier = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Lockpicking.Multiplier    = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Mining.Multiplier         = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Skinning.Multiplier       = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Smelting.Multiplier       = 1.0
+CustomXPScaling.ProfessionsXP.Skill.Tailoring.Multiplier      = 1.0
+
+#    Skill-rank brackets (default 1.0 = no per-rank change)
+#        Bracket boundaries match the WoW expansion tiers:
+#            Apprentice   1-75
+#            Journeyman  76-150
+#            Expert     151-225
+#            Artisan    226-300
+#            Master     301-375
+#            GrandMaster 376-450
+#        For crafts the bracket is chosen from the recipe's MinSkillLineRank
+#        (so a level 450 recipe pays GrandMaster XP even if the player is over-
+#        skilled); for gather/fishing the bracket is chosen from the player's
+#        current skill.
+
+CustomXPScaling.ProfessionsXP.Rank.Apprentice   = 1.0
+CustomXPScaling.ProfessionsXP.Rank.Journeyman   = 1.0
+CustomXPScaling.ProfessionsXP.Rank.Expert       = 1.0
+CustomXPScaling.ProfessionsXP.Rank.Artisan      = 1.0
+CustomXPScaling.ProfessionsXP.Rank.Master       = 1.0
+CustomXPScaling.ProfessionsXP.Rank.GrandMaster  = 1.0
 
 ################################################################################################################
 # Achievement XP
@@ -146,5 +218,107 @@ CustomXPScaling.AchievementXP.MaxMultiplier = 2.5
 
 CustomXPScaling.TaxiNodeXP.Enable = 1
 CustomXPScaling.TaxiNodeXP.LevelPercent = "2.0:0.5"
+
+################################################################################################################
+# Cast Speed
+#
+# Globally slows (or speeds) the cast time of profession spells -- crafting,
+# gathering, fishing, disenchant, smelt, lockpick -- to rebalance the higher
+# XP-per-action rates this module hands out. Applied once at world boot by
+# directly rewriting each affected SpellInfo's cast time, so there is zero
+# per-cast overhead at runtime and no SpellScript fan-out.
+#
+#   Final cast time = max(MinCastTimeMs,
+#                         round(original * Source.Multiplier * Rank.Multiplier))
+#
+#   Multiplier semantics: >= 1.0 SLOWS the cast (1.5 = 50% slower),
+#                          < 1.0 speeds it up (0.5 = twice as fast).
+#                          0.0 is treated as "leave this spell alone",
+#                          not "make it instant" -- the MinCastTimeMs floor
+#                          is the right way to cap fast values.
+#
+# Sources -- one spell maps to exactly one source via signature/skill checks:
+#   Craft       -- recipes with SPELL_EFFECT_CREATE_ITEM and at least one
+#                  reagent (alchemy, blacksmithing, cooking, enchanting that
+#                  isn't disenchant, etc.).
+#   Gather      -- the gather casts for SKILL_MINING, SKILL_HERBALISM,
+#                  SKILL_SKINNING (no create-item effect).
+#   Fish        -- SKILL_FISHING. WoW fishing is one channel spell; the
+#                  multiplier scales how long a cast lasts before fish bite.
+#   Disenchant  -- spell id 13262. Detected by signature (the only reliable
+#                  way to split disenchant from regular enchanting).
+#   Smelt       -- SKILL_MINING crafting recipes (Smelt Copper, etc.).
+#                  Distinguished from gather-mining by SPELL_EFFECT_CREATE_ITEM.
+#   Lockpick    -- SKILL_LOCKPICKING.
+#
+# Per-rank brackets layer on top of the source multiplier; they let admins
+# slow late-tier recipes more aggressively than apprentice ones. Bracket
+# boundaries match the WoW expansion tiers:
+#   Apprentice    1- 75
+#   Journeyman   76-150
+#   Expert      151-225
+#   Artisan     226-300
+#   Master      301-375
+#   GrandMaster 376-450
+# Bracket is chosen from the recipe's MinSkillLineRank (crafts/smelts) or
+# the SkillLineAbility row's MinSkillLineRank for gather casts (typically 0
+# for the catch-all gather spells, so they land in the Apprentice bucket
+# unless you tune that slot).
+#
+# Important: SpellInfo cast-time mutation happens ONCE at world startup.
+# Changes to any CastSpeed.* key require a `worldserver restart` to take
+# effect -- the existing modified spells are not reverted on .reload config.
+# The XP-side keys above DO live-reload, this section does not.
+################################################################################################################
+
+#    CustomXPScaling.CastSpeed.Enable
+#        Description: Master toggle. When 0 the boot pass is skipped entirely
+#                     and every profession spell keeps its DBC cast time.
+#        Default:     0 - Disabled (baseline, no cast-speed changes)
+#                     1 - Enabled
+
+CustomXPScaling.CastSpeed.Enable = 0
+
+#    CustomXPScaling.CastSpeed.LogToConsole
+#        Description: Log every modified spell to the worldserver console at
+#                     boot. Useful while tuning; the final summary line is
+#                     always logged regardless. Cost is paid only at boot.
+#        Default:     0 - Disabled
+#                     1 - Enabled
+
+CustomXPScaling.CastSpeed.LogToConsole = 0
+
+#    CustomXPScaling.CastSpeed.MinCastTimeMs
+#        Description: Lower bound (in milliseconds) for any modified cast.
+#                     Prevents aggressive < 1.0 multipliers from collapsing
+#                     casts to 0ms (which the client handles poorly).
+#        Default:     250 ms
+
+CustomXPScaling.CastSpeed.MinCastTimeMs = 250
+
+#    Per-source multipliers (1.0 = unchanged)
+#        Examples:
+#            2.0  -- doubles the cast time (twice as slow)
+#            1.5  -- 50% slower
+#            1.0  -- unchanged
+#            0.5  -- twice as fast (clamped by MinCastTimeMs)
+
+CustomXPScaling.CastSpeed.Craft.Multiplier      = 1.0
+CustomXPScaling.CastSpeed.Gather.Multiplier     = 1.0
+CustomXPScaling.CastSpeed.Fish.Multiplier       = 1.0
+CustomXPScaling.CastSpeed.Disenchant.Multiplier = 1.0
+CustomXPScaling.CastSpeed.Smelt.Multiplier      = 1.0
+CustomXPScaling.CastSpeed.Lockpick.Multiplier   = 1.0
+
+#    Per-rank multipliers (1.0 = unchanged)
+#        Layered on top of the source multiplier. Default 1.0 across the
+#        board, so a fresh install only feels the source values.
+
+CustomXPScaling.CastSpeed.Rank.Apprentice   = 1.0
+CustomXPScaling.CastSpeed.Rank.Journeyman   = 1.0
+CustomXPScaling.CastSpeed.Rank.Expert       = 1.0
+CustomXPScaling.CastSpeed.Rank.Artisan      = 1.0
+CustomXPScaling.CastSpeed.Rank.Master       = 1.0
+CustomXPScaling.CastSpeed.Rank.GrandMaster  = 1.0
 
 ##################################################################################################################
